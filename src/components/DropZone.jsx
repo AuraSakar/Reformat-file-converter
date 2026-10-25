@@ -49,7 +49,12 @@ export function DropZone({
           </p>
         </div>
         <div className="shrink-0">
-          <Button variant="secondary" onClick={() => inputRef.current?.click()} disabled={disabled}>
+          <Button
+            variant="secondary"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled}
+            aria-describedby={descriptionId}
+          >
             {buttonLabel}
           </Button>
           <input
@@ -59,6 +64,7 @@ export function DropZone({
             accept={accept}
             multiple={multiple}
             disabled={disabled}
+            tabIndex={-1}
             aria-label={buttonLabel}
             aria-describedby={descriptionId}
             onChange={(event) => {

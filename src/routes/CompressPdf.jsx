@@ -7,6 +7,7 @@ import { SettingsGroup, SettingsPanel } from '../components/SettingsPanel';
 import { useToast } from '../components/Toasts';
 import { PDF_ACCEPT } from '../lib/config';
 import { downloadBlob } from '../lib/download';
+import { browserSupportsPdfRendering } from '../lib/imageSupport';
 import { baseNameOf, checkBatchLimits, makeId } from '../lib/files';
 import { formatBytes, formatCount, formatSavings } from '../lib/format';
 import { sniffFile } from '../lib/sniff';
@@ -42,7 +43,7 @@ function CompressSettings({ settings, onChange, disabled }) {
                 onChange={() => onChange({ level: level.value })}
                 className="peer sr-only"
               />
-              <span className="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-[4px] border border-line bg-surface px-1 py-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40 sm:min-h-10">
+              <span className="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-[4px] border border-line-strong bg-surface px-1 py-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40 sm:min-h-10">
                 <span>{level.label}</span>
                 <span className="mono text-[10px] font-normal text-ink-2">{level.dpi} DPI</span>
               </span>
@@ -71,6 +72,7 @@ export default function CompressPdf() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [workersSupported] = useState(() => browserSupportsPdfRendering());
   const [progress, setProgress] = useState(null);
   const [summary, setSummary] = useState('');
   const [output, setOutput] = useState(null);
@@ -306,10 +308,17 @@ export default function CompressPdf() {
             description={`PDF files only. One file at a time, up to 40 MB. Pages are rebuilt as JPG images.`}
             accept={PDF_ACCEPT}
             multiple={false}
-            disabled={busy || preparing}
+            disabled={busy || preparing || !workersSupported}
             onFiles={addFile}
             buttonLabel="Choose PDF"
           />
+
+          {!workersSupported ? (
+            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+              This browser does not support background PDF rendering. Use a current version of
+              Chrome, Edge, Firefox or Safari to compress PDFs.
+            </p>
+          ) : null}
 
           <p className="mt-3 border-l-2 border-warn pl-2.5 text-[12px] leading-5 text-ink-2">
             <span className="font-medium text-ink">This flattens text into images.</span> Text
@@ -326,7 +335,7 @@ export default function CompressPdf() {
                   <Button
                     variant={dirty ? 'primary' : 'secondary'}
                     onClick={compress}
-                    disabled={busy || preparing || !readied}
+                    disabled={busy || preparing || !workersSupported || !readied}
                   >
                     {busy ? 'Compressing…' : 'Compress again'}
                   </Button>
@@ -339,7 +348,7 @@ export default function CompressPdf() {
                   </Button>
                 </>
               ) : (
-                <Button onClick={compress} disabled={busy || preparing || !readied}>
+                <Button onClick={compress} disabled={busy || preparing || !workersSupported || !readied}>
                   {busy ? 'Compressing…' : 'Compress PDF'}
                 </Button>
               )}
@@ -400,7 +409,7 @@ export default function CompressPdf() {
           <CompressSettings
             settings={settings}
             onChange={changeSettings}
-            disabled={busy || preparing}
+            disabled={busy || preparing || !workersSupported}
           />
           <div className="mt-4 space-y-3 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
             <p>Everything is rendered and rebuilt on this device. Nothing is uploaded.</p>

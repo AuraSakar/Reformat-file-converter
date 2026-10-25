@@ -7,6 +7,7 @@ import { SettingsGroup, SettingsPanel } from '../components/SettingsPanel';
 import { useToast } from '../components/Toasts';
 import { PDF_ACCEPT, PDF_TO_IMAGES_DPI_OPTIONS } from '../lib/config';
 import { downloadBlob } from '../lib/download';
+import { browserSupportsPdfRendering } from '../lib/imageSupport';
 import { baseNameOf, checkBatchLimits, makeId } from '../lib/files';
 import { formatBytes, formatCount } from '../lib/format';
 import { sniffFile } from '../lib/sniff';
@@ -40,7 +41,7 @@ function PdfPageSettings({ settings, onChange, disabled }) {
                 onChange={() => onChange({ format: format.value })}
                 className="peer sr-only"
               />
-              <span className="flex min-h-10 cursor-pointer items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40 sm:min-h-9">
+              <span className="flex min-h-10 cursor-pointer items-center justify-center rounded-[4px] border border-line-strong bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40 sm:min-h-9">
                 {format.label}
               </span>
             </label>
@@ -66,7 +67,7 @@ function PdfPageSettings({ settings, onChange, disabled }) {
                 onChange={() => onChange({ dpi })}
                 className="peer sr-only"
               />
-              <span className="flex min-h-10 cursor-pointer items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40 sm:min-h-9">
+              <span className="flex min-h-10 cursor-pointer items-center justify-center rounded-[4px] border border-line-strong bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40 sm:min-h-9">
                 {dpi} DPI
               </span>
             </label>
@@ -85,6 +86,7 @@ export default function PdfToImages() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [workersSupported] = useState(() => browserSupportsPdfRendering());
   const [progress, setProgress] = useState(null);
   const [summary, setSummary] = useState('');
   const [output, setOutput] = useState(null);
@@ -319,10 +321,17 @@ export default function PdfToImages() {
             description={`PDF files only. One file at a time, up to 40 MB. Every page becomes an image.`}
             accept={PDF_ACCEPT}
             multiple={false}
-            disabled={busy || preparing}
+            disabled={busy || preparing || !workersSupported}
             onFiles={addFile}
             buttonLabel="Choose PDF"
           />
+
+          {!workersSupported ? (
+            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+              This browser does not support background PDF rendering. Use a current version of
+              Chrome, Edge, Firefox or Safari.
+            </p>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
@@ -334,7 +343,7 @@ export default function PdfToImages() {
                   <Button
                     variant={dirty ? 'primary' : 'secondary'}
                     onClick={convert}
-                    disabled={busy || preparing || !readied}
+                    disabled={busy || preparing || !workersSupported || !readied}
                   >
                     {busy ? 'Converting…' : 'Convert again'}
                   </Button>
@@ -347,7 +356,7 @@ export default function PdfToImages() {
                   </Button>
                 </>
               ) : (
-                <Button onClick={convert} disabled={busy || preparing || !readied}>
+                <Button onClick={convert} disabled={busy || preparing || !workersSupported || !readied}>
                   {busy ? 'Converting…' : 'Convert to images'}
                 </Button>
               )}
@@ -401,7 +410,7 @@ export default function PdfToImages() {
           <PdfPageSettings
             settings={settings}
             onChange={changeSettings}
-            disabled={busy || preparing}
+            disabled={busy || preparing || !workersSupported}
           />
           <div className="mt-4 space-y-3 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
             <p>Text in the PDF becomes part of the image and is no longer selectable.</p>

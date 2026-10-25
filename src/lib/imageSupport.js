@@ -1,8 +1,20 @@
 let webpSupportPromise = null;
 
+export function browserSupportsWorker() {
+  return typeof Worker !== 'undefined';
+}
+
+export function browserSupportsPdfRendering() {
+  return (
+    browserSupportsWorker() &&
+    typeof OffscreenCanvas !== 'undefined' &&
+    'convertToBlob' in OffscreenCanvas.prototype
+  );
+}
+
 export function browserSupportsImageWorkers() {
   return (
-    typeof Worker !== 'undefined' &&
+    browserSupportsWorker() &&
     typeof OffscreenCanvas !== 'undefined' &&
     typeof createImageBitmap === 'function'
   );

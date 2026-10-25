@@ -6,6 +6,7 @@ import { FileQueue } from '../components/FileQueue';
 import { Button } from '../components/Button';
 import { useToast } from '../components/Toasts';
 import { LIMITS, PDF_ACCEPT } from '../lib/config';
+import { browserSupportsPdfRendering } from '../lib/imageSupport';
 import { downloadBlob } from '../lib/download';
 import { baseNameOf, checkBatchLimits, makeId } from '../lib/files';
 import { formatBytes, formatCount } from '../lib/format';
@@ -26,7 +27,7 @@ function Thumbnail({ page, selected, onToggle }) {
         className={`relative block aspect-[3/4] overflow-hidden rounded-[4px] border bg-white transition-colors duration-150 ${
           selected
             ? 'border-ink ring-1 ring-ink'
-            : 'border-line group-hover:border-line-strong'
+            : 'border-line-strong group-hover:border-ink'
         }`}
       >
         <img
@@ -61,6 +62,7 @@ export default function SplitPdf() {
   const [rangeError, setRangeError] = useState(null);
   const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [workersSupported] = useState(() => browserSupportsPdfRendering());
   const [progress, setProgress] = useState(null);
   const [summary, setSummary] = useState('');
   const [output, setOutput] = useState(null);
@@ -349,10 +351,17 @@ export default function SplitPdf() {
             description={`PDF files only. One file at a time, up to 40 MB. Page previews load on this device.`}
             accept={PDF_ACCEPT}
             multiple={false}
-            disabled={preparing || busy}
+            disabled={preparing || busy || !workersSupported}
             onFiles={addFile}
             buttonLabel="Choose PDF"
           />
+
+          {!workersSupported ? (
+            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+              This browser does not support background PDF processing. Use a current version of
+              Chrome, Edge, Firefox or Safari.
+            </p>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
@@ -365,7 +374,11 @@ export default function SplitPdf() {
                     variant={dirty ? 'primary' : 'secondary'}
                     onClick={extract}
                     disabled={
-                      busy || preparing || Boolean(rangeError) || selectedPages.length === 0
+                      busy ||
+                      preparing ||
+                      !workersSupported ||
+                      Boolean(rangeError) ||
+                      selectedPages.length === 0
                     }
                   >
                     {busy ? 'Extracting…' : 'Extract again'}
@@ -384,6 +397,7 @@ export default function SplitPdf() {
                   disabled={
                     busy ||
                     preparing ||
+                    !workersSupported ||
                     !item ||
                     item.status === 'error' ||
                     Boolean(rangeError) ||

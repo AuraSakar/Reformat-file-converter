@@ -15,6 +15,8 @@ export function PdfSettings({ settings, onChange, disabled = false, settingsErro
   const orientationId = `${id}-orientation`;
   const marginId = `${id}-margin`;
   const fitId = `${id}-fit`;
+  const marginHintId = `${id}-margin-hint`;
+  const fitHintId = `${id}-fit-hint`;
   const qualityMode = pdfQualityMode(settings.quality);
   const margin = marginFor(settings.margin);
   const fit = PDF_FITS.find((option) => option.value === settings.fit) ?? PDF_FITS[0];
@@ -36,7 +38,7 @@ export function PdfSettings({ settings, onChange, disabled = false, settingsErro
                 onChange={() => set({ pageSize: size.value })}
                 className="peer sr-only"
               />
-              <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
+              <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line-strong bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
                 {size.label}
               </span>
             </label>
@@ -71,11 +73,12 @@ export function PdfSettings({ settings, onChange, disabled = false, settingsErro
             : 'Auto turns each page to suit its image.'}
         </p>
 
-        <Field label="Margins" htmlFor={marginId} hint={margin.hint}>
+        <Field label="Margins" htmlFor={marginId} hint={margin.hint} hintId={marginHintId}>
           <select
             id={marginId}
             value={settings.margin}
             disabled={disabled}
+            aria-describedby={marginHintId}
             onChange={(event) => set({ margin: event.target.value })}
             className="control"
           >
@@ -87,11 +90,12 @@ export function PdfSettings({ settings, onChange, disabled = false, settingsErro
           </select>
         </Field>
 
-        <Field label="Image fit" htmlFor={fitId} hint={fit.hint}>
+        <Field label="Image fit" htmlFor={fitId} hint={fit.hint} hintId={fitHintId}>
           <select
             id={fitId}
             value={settings.fit}
             disabled={disabled}
+            aria-describedby={fitHintId}
             onChange={(event) => set({ fit: event.target.value })}
             className="control"
           >
@@ -117,7 +121,7 @@ export function PdfSettings({ settings, onChange, disabled = false, settingsErro
                 onChange={() => set({ quality: mode.value })}
                 className="peer sr-only"
               />
-              <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
+              <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line-strong bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
                 {mode.label}
               </span>
             </label>

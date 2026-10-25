@@ -26,6 +26,7 @@ export function ImageSettings({
   const percentId = `${id}-percent`;
   const rotationId = `${id}-rotation`;
   const backgroundId = `${id}-background`;
+  const backgroundHintId = `${id}-background-hint`;
 
   const set = (patch) => onChange(patch);
   const qualityDisabled = disabled || settings.format === 'image/png' || settings.targetEnabled;
@@ -51,7 +52,7 @@ export function ImageSettings({
                   onChange={() => set({ format: format.value })}
                   className="peer sr-only"
                 />
-                <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
+                <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line-strong bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
                   {format.label}
                 </span>
               </label>
@@ -259,6 +260,7 @@ export function ImageSettings({
             label="Background for transparency"
             htmlFor={backgroundId}
             hint="JPG has no transparency. Transparent areas are filled with this color."
+            hintId={backgroundHintId}
           >
             <div className="flex items-center gap-2">
               <input
@@ -266,8 +268,9 @@ export function ImageSettings({
                 type="color"
                 value={settings.background}
                 disabled={disabled}
+                aria-describedby={backgroundHintId}
                 onChange={(event) => set({ background: event.target.value })}
-                className="h-10 w-10 cursor-pointer rounded-[4px] border border-line bg-surface p-0.5 disabled:opacity-40 sm:h-9"
+                className="h-10 w-10 cursor-pointer rounded-[4px] border border-line-strong bg-surface p-0.5 disabled:opacity-40 sm:h-9"
               />
               <span className="mono text-[12px] uppercase text-ink-2">{settings.background}</span>
             </div>

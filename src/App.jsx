@@ -35,7 +35,11 @@ function NotFound() {
     <div className="mx-auto max-w-[1120px] px-4 py-10 sm:px-6">
       <h1 className="text-xl font-semibold">Page not found</h1>
       <p className="mt-1 text-[13px] text-ink-2">
-        That address does not match a tool. <Link className="underline" to="/">Open the image converter</Link>.
+        That address does not match a tool.{' '}
+        <Link className="inline-flex min-h-10 items-center underline sm:min-h-0" to="/">
+          Open the image converter
+        </Link>
+        .
       </p>
     </div>
   );
@@ -115,7 +119,10 @@ function Shell() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-[1120px] flex-col gap-1 px-4 py-4 text-[12px] text-ink-2 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>Files are processed on your device and are not uploaded.</p>
-          <Link to="/privacy" className="w-fit underline underline-offset-2 hover:text-ink">
+          <Link
+            to="/privacy"
+            className="inline-flex min-h-10 w-fit items-center underline underline-offset-2 hover:text-ink sm:min-h-0"
+          >
             Privacy
           </Link>
         </div>

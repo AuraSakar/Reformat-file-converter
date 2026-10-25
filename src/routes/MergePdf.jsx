@@ -9,12 +9,14 @@ import { downloadBlob } from '../lib/download';
 import { checkBatchLimits, makeId } from '../lib/files';
 import { formatBytes, formatCount, formatSavings } from '../lib/format';
 import { sniffFile } from '../lib/sniff';
+import { browserSupportsWorker } from '../lib/imageSupport';
 import { createPdfPool } from '../workers/pool';
 
 export default function MergePdf() {
   const [items, setItems] = useState([]);
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [workersSupported] = useState(() => browserSupportsWorker());
   const [summary, setSummary] = useState('');
   const [output, setOutput] = useState(null);
   const [dirty, setDirty] = useState(false);
@@ -242,6 +244,7 @@ export default function MergePdf() {
     }
   };
 
+  const failedCount = items.filter((entry) => entry.status === 'error').length;
   const savings = output
     ? formatSavings(
         validItems.reduce((sum, item) => sum + item.size, 0),
@@ -254,9 +257,9 @@ export default function MergePdf() {
       ? 'Merging PDFs…'
       : summary ||
         (items.length
-          ? `${formatCount(validItems.length, 'readable PDF')}. ${
-              validItems.length < 2 ? 'Add one more to merge.' : 'Ready to merge.'
-            }`
+          ? `${formatCount(validItems.length, 'readable PDF')}.${
+              failedCount ? ` ${formatCount(failedCount, 'file')} failed.` : ''
+            } ${validItems.length < 2 ? 'Add one more to merge.' : 'Ready to merge.'}`
           : '');
 
   return (
@@ -271,10 +274,17 @@ export default function MergePdf() {
             title="Drop PDFs here"
             description={`PDF files only. Up to ${LIMITS.maxFiles} files, 40 MB each, 300 MB total. Encrypted PDFs must be unlocked first.`}
             accept={PDF_ACCEPT}
-            disabled={checking || busy}
+            disabled={checking || busy || !workersSupported}
             onFiles={addFiles}
             buttonLabel="Choose PDFs"
           />
+
+          {!workersSupported ? (
+            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+              This browser does not support background PDF processing. Use a current version of
+              Chrome, Edge, Firefox or Safari to merge PDFs.
+            </p>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
@@ -286,7 +296,7 @@ export default function MergePdf() {
                   <Button
                     variant={dirty ? 'primary' : 'secondary'}
                     onClick={buildPdf}
-                    disabled={busy || checking || validItems.length < 2}
+                    disabled={busy || checking || !workersSupported || validItems.length < 2}
                   >
                     {busy ? 'Merging…' : 'Merge again'}
                   </Button>
@@ -301,7 +311,7 @@ export default function MergePdf() {
               ) : (
                 <Button
                   onClick={buildPdf}
-                  disabled={busy || checking || validItems.length < 2}
+                  disabled={busy || checking || !workersSupported || validItems.length < 2}
                 >
                   {busy ? 'Merging…' : 'Merge PDFs'}
                 </Button>
