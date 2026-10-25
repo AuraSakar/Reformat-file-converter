@@ -1,7 +1,20 @@
 import * as pdfjs from 'pdfjs-dist/build/pdf.min.mjs';
 import 'pdfjs-dist/build/pdf.worker.min.mjs';
-import { PDFDocument, degrees } from 'pdf-lib';
+import {
+  PDFArray,
+  PDFBool,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFRawStream,
+  PDFRef,
+  PDFStream,
+  decodePDFRawStream,
+  degrees,
+} from 'pdf-lib';
 import { zipSync } from 'fflate';
+import { attemptsFor, presetFor } from '../lib/compressOptions';
 
 const MAX_CANVAS_DIMENSION = 16384;
 const MAX_OUTPUT_PIXELS = 64_000_000;
@@ -158,7 +171,7 @@ function scaleForPage(page, dpi = 150) {
   };
 }
 
-async function renderPage(page, scale, type, quality) {
+async function renderPage(page, scale, type, quality, options = {}) {
   const viewport = page.getViewport({ scale });
   const width = Math.max(1, Math.round(viewport.width));
   const height = Math.max(1, Math.round(viewport.height));
@@ -175,6 +188,20 @@ async function renderPage(page, scale, type, quality) {
     viewport,
     background: '#ffffff',
   }).promise;
+
+  if (options.grayscale && type === 'image/jpeg') {
+    const imageData = context.getImageData(0, 0, width, height);
+    const pixels = imageData.data;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const value = Math.round(
+        pixels[index] * 0.299 + pixels[index + 1] * 0.587 + pixels[index + 2] * 0.114,
+      );
+      pixels[index] = value;
+      pixels[index + 1] = value;
+      pixels[index + 2] = value;
+    }
+    context.putImageData(imageData, 0, 0);
+  }
 
   const blob = await canvas.convertToBlob({
     type,
@@ -473,12 +500,398 @@ async function pdfToImages(bytes, options, onProgress) {
   }
 }
 
-async function compressPdf(bytes, options, onProgress) {
-  const dpi = Number(options?.dpi) || 150;
-  const quality = Math.min(0.95, Math.max(0.35, Number(options?.quality) || 0.72));
+function pdfNamePart(value) {
+  return value instanceof PDFName ? value.asString().replace(/^\//, '') : null;
+}
 
-  onProgress?.({ label: 'Opening PDF' });
-  const { doc, task } = await openForRendering(bytes);
+function pdfNumberField(dict, key, fallback = null) {
+  const value = dict.get(PDFName.of(key));
+  return value instanceof PDFNumber ? value.asNumber() : fallback;
+}
+
+function encodedStreamBytes(stream) {
+  if (stream instanceof PDFRawStream) return stream.contents;
+  if (typeof stream.getContents === 'function') return stream.getContents();
+  return new Uint8Array();
+}
+
+function imageFilterNames(dict) {
+  const filter = dict.lookup(PDFName.of('Filter'));
+  if (!filter) return [];
+  if (filter instanceof PDFName) {
+    const name = pdfNamePart(filter);
+    return name ? [name] : [];
+  }
+  if (filter instanceof PDFArray) {
+    return filter
+      .asArray()
+      .map((entry) => pdfNamePart(entry))
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function imageColorComponents(dict) {
+  const colorSpace = dict.lookup(PDFName.of('ColorSpace'));
+  if (colorSpace instanceof PDFName) {
+    const name = pdfNamePart(colorSpace);
+    if (name === 'DeviceRGB' || name === 'RGB' || name === 'CalRGB') return 3;
+    if (name === 'DeviceGray' || name === 'G' || name === 'CalGray') return 1;
+    if (name === 'DeviceCMYK' || name === 'CMYK') return 4;
+    return null;
+  }
+  if (colorSpace instanceof PDFArray) {
+    const family = pdfNamePart(colorSpace.get(0));
+    if (family === 'ICCBased') {
+      const profile = colorSpace.lookup(1);
+      if (profile instanceof PDFStream) {
+        const count = pdfNumberField(profile.dict, 'N');
+        if (count === 1 || count === 3 || count === 4) return count;
+      }
+    }
+    if (family === 'CalRGB') return 3;
+    if (family === 'CalGray') return 1;
+  }
+  return null;
+}
+
+function isOptimizableImage(stream) {
+  if (!(stream instanceof PDFStream)) return false;
+  const dict = stream.dict;
+  if (pdfNamePart(dict.get(PDFName.of('Subtype'))) !== 'Image') return false;
+  const imageMask = dict.lookup(PDFName.of('ImageMask'));
+  if (imageMask instanceof PDFBool && imageMask.asBoolean()) return false;
+  if (dict.has(PDFName.of('SMask')) || dict.has(PDFName.of('Mask'))) return false;
+  if (dict.has(PDFName.of('Decode'))) return false;
+  if (pdfNumberField(dict, 'BitsPerComponent', 8) !== 8) return false;
+  const width = pdfNumberField(dict, 'Width', 0);
+  const height = pdfNumberField(dict, 'Height', 0);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
+    return false;
+  }
+  return width * height <= 40_000_000;
+}
+
+async function decodeImageSource(stream, dict, width, height) {
+  const filters = imageFilterNames(dict);
+  if (filters.length === 1 && filters[0] === 'DCTDecode') {
+    const bitmap = await createImageBitmap(
+      new Blob([encodedStreamBytes(stream)], { type: 'image/jpeg' }),
+      { imageOrientation: 'none', premultiplyAlpha: 'default' },
+    );
+    return { bitmap, width, height };
+  }
+
+  const supported = new Set([
+    'FlateDecode',
+    'ASCII85Decode',
+    'ASCIIHexDecode',
+    'RunLengthDecode',
+    'LZWDecode',
+  ]);
+  if (filters.some((name) => !supported.has(name))) return null;
+  if (!(stream instanceof PDFRawStream)) return null;
+
+  const components = imageColorComponents(dict);
+  if (!components) return null;
+
+  const decoded = decodePDFRawStream(stream).decode();
+  const pixelCount = width * height;
+  const expected = pixelCount * components;
+  if (decoded.length < expected) return null;
+
+  const rgba = new Uint8ClampedArray(pixelCount * 4);
+  if (components === 3) {
+    for (let source = 0, target = 0; source < expected; source += 3, target += 4) {
+      rgba[target] = decoded[source];
+      rgba[target + 1] = decoded[source + 1];
+      rgba[target + 2] = decoded[source + 2];
+      rgba[target + 3] = 255;
+    }
+  } else if (components === 1) {
+    for (let source = 0, target = 0; source < expected; source += 1, target += 4) {
+      const value = decoded[source];
+      rgba[target] = value;
+      rgba[target + 1] = value;
+      rgba[target + 2] = value;
+      rgba[target + 3] = 255;
+    }
+  } else {
+    for (let source = 0, target = 0; source < expected; source += 4, target += 4) {
+      const c = decoded[source] / 255;
+      const m = decoded[source + 1] / 255;
+      const y = decoded[source + 2] / 255;
+      const k = decoded[source + 3] / 255;
+      rgba[target] = Math.round(255 * (1 - c) * (1 - k));
+      rgba[target + 1] = Math.round(255 * (1 - m) * (1 - k));
+      rgba[target + 2] = Math.round(255 * (1 - y) * (1 - k));
+      rgba[target + 3] = 255;
+    }
+  }
+
+  const canvas = new OffscreenCanvas(width, height);
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  context.putImageData(new ImageData(rgba, width, height), 0, 0);
+  return { canvas, width, height };
+}
+
+function targetImageDimensions(width, height, maxWidth, maxHeight) {
+  const scale = Math.min(1, maxWidth / width, maxHeight / height);
+  if (!Number.isFinite(scale) || scale >= 0.98) return null;
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
+  };
+}
+
+async function encodeImageAtSize(stream, dict, width, height, targetWidth, targetHeight, quality) {
+  let source;
+  try {
+    source = await decodeImageSource(stream, dict, width, height);
+  } catch {
+    return null;
+  }
+  if (!source) return null;
+
+  const target = targetImageDimensions(width, height, targetWidth, targetHeight);
+  if (!target) {
+    source.bitmap?.close();
+    if (source.canvas) {
+      source.canvas.width = 0;
+      source.canvas.height = 0;
+    }
+    return null;
+  }
+
+  try {
+    const canvas = new OffscreenCanvas(target.width, target.height);
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, target.width, target.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(source.bitmap ?? source.canvas, 0, 0, target.width, target.height);
+    const blob = await canvas.convertToBlob({
+      type: 'image/jpeg',
+      quality: Math.min(0.95, Math.max(0.35, quality)),
+    });
+    canvas.width = 0;
+    canvas.height = 0;
+    if (!blob || blob.type !== 'image/jpeg' || !blob.size) return null;
+    return {
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      width: target.width,
+      height: target.height,
+    };
+  } catch {
+    return null;
+  } finally {
+    source.bitmap?.close();
+    if (source.canvas) {
+      source.canvas.width = 0;
+      source.canvas.height = 0;
+    }
+  }
+}
+
+function collectImageGroups(doc, dpi) {
+  const groups = new Map();
+  let pagesWithImages = 0;
+  const pageCount = doc.getPageCount();
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    const page = doc.getPage(pageIndex);
+    const rotation = page.getRotation().angle % 180;
+    const rawWidth = page.getWidth();
+    const rawHeight = page.getHeight();
+    const pageWidth = rotation ? rawHeight : rawWidth;
+    const pageHeight = rotation ? rawWidth : rawHeight;
+    const targetWidth = Math.max(1, Math.floor((pageWidth / 72) * dpi));
+    const targetHeight = Math.max(1, Math.floor((pageHeight / 72) * dpi));
+    let pageHasImage = false;
+    const seenForms = new Set();
+
+    const walkResources = (resources) => {
+      if (!(resources instanceof PDFDict)) return;
+      const xobjects = resources.lookup(PDFName.of('XObject'));
+      if (!(xobjects instanceof PDFDict)) return;
+
+      for (const [name, value] of xobjects.entries()) {
+        const object = xobjects.lookup(name);
+        if (!(object instanceof PDFStream)) continue;
+        const subtype = pdfNamePart(object.dict.get(PDFName.of('Subtype')));
+
+        if (subtype === 'Form') {
+          if (seenForms.has(object)) continue;
+          seenForms.add(object);
+          walkResources(object.dict.lookup(PDFName.of('Resources')));
+          continue;
+        }
+
+        if (subtype !== 'Image' || !isOptimizableImage(object)) continue;
+        pageHasImage = true;
+        const width = pdfNumberField(object.dict, 'Width', 0);
+        const height = pdfNumberField(object.dict, 'Height', 0);
+        const ref = doc.context.getObjectRef(object);
+        const key = ref ? ref.toString() : object;
+        let group = groups.get(key);
+        if (!group) {
+          group = {
+            stream: object,
+            dict: object.dict,
+            width,
+            height,
+            targetWidth: 0,
+            targetHeight: 0,
+            originalBytes: encodedStreamBytes(object).length,
+            usages: [],
+          };
+          groups.set(key, group);
+        }
+        group.targetWidth = Math.max(group.targetWidth, targetWidth);
+        group.targetHeight = Math.max(group.targetHeight, targetHeight);
+        group.usages.push({ dict: xobjects, name });
+      }
+    };
+
+    walkResources(page.node.Resources());
+    if (pageHasImage) pagesWithImages += 1;
+  }
+
+  return { groups: [...groups.values()], pagesWithImages };
+}
+
+function describePdfImages(doc, groups, pagesWithImages) {
+  const pages = doc.getPageCount();
+  let kind = 'text';
+  if (groups.length > 0) {
+    kind = pagesWithImages >= Math.max(1, Math.ceil(pages * 0.5)) ? 'scanned' : 'mixed';
+  }
+  return { kind, pages, imageCount: groups.length, pagesWithImages };
+}
+
+function stripCompressionMetadata(doc) {
+  doc.catalog.delete(PDFName.of('Metadata'));
+  const infoRef = doc.context.trailerInfo.Info;
+  const info = infoRef ? doc.context.lookup(infoRef) : null;
+  if (info instanceof PDFDict) {
+    for (const [key] of info.entries()) info.delete(key);
+  }
+}
+
+function removeUnreachableObjects(doc) {
+  const context = doc.context;
+  const seenRefs = new Set();
+
+  const visit = (value) => {
+    if (!value) return;
+    if (value instanceof PDFRef) {
+      const key = value.toString();
+      if (seenRefs.has(key)) return;
+      seenRefs.add(key);
+      visit(context.lookup(value));
+      return;
+    }
+    if (value instanceof PDFDict) {
+      for (const [, child] of value.entries()) visit(child);
+      return;
+    }
+    if (value instanceof PDFArray) {
+      for (const child of value.asArray()) visit(child);
+      return;
+    }
+    if (value instanceof PDFStream) {
+      visit(value.dict);
+    }
+  };
+
+  visit(context.trailerInfo.Root);
+  visit(context.trailerInfo.Info);
+  for (const [ref] of context.enumerateIndirectObjects()) {
+    if (!seenRefs.has(ref.toString())) context.delete(ref);
+  }
+}
+
+async function compressKeepText(bytes, config, onProgress, prefix) {
+  onProgress?.({ label: prefixedProgress(prefix, 'Analyzing PDF'), done: 0, total: 0 });
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  const pages = doc.getPageCount();
+  if (!pages) throw new JobError('PDF_EMPTY', 'This PDF has no pages.');
+
+  const { groups, pagesWithImages } = collectImageGroups(doc, config.dpi);
+  const analysis = describePdfImages(doc, groups, pagesWithImages);
+  const candidates = groups
+    .map((group) => ({
+      group,
+      target: targetImageDimensions(
+        group.width,
+        group.height,
+        group.targetWidth,
+        group.targetHeight,
+      ),
+    }))
+    .filter((entry) => entry.target);
+
+  let reencodedImages = 0;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const { group, target } = candidates[index];
+    onProgress?.({
+      label: prefixedProgress(
+        prefix,
+        `Optimizing image ${index + 1} of ${candidates.length}`,
+      ),
+      done: index,
+      total: candidates.length,
+    });
+    const result = await encodeImageAtSize(
+      group.stream,
+      group.dict,
+      group.width,
+      group.height,
+      group.targetWidth,
+      group.targetHeight,
+      config.quality,
+    );
+    if (!result || result.bytes.length >= group.originalBytes) continue;
+
+    const embedded = await doc.embedJpg(result.bytes);
+    for (const usage of group.usages) {
+      usage.dict.set(usage.name, embedded.ref);
+    }
+    reencodedImages += 1;
+  }
+
+  onProgress?.({
+    label: prefixedProgress(prefix, 'Writing PDF'),
+    done: candidates.length,
+    total: candidates.length,
+  });
+  stripCompressionMetadata(doc);
+  removeUnreachableObjects(doc);
+  const saved = await doc.save({ useObjectStreams: true });
+  return {
+    bytes: saved,
+    pages,
+    analysis,
+    strategy: 'keep',
+    reencodedImages,
+    clamped: false,
+  };
+}
+
+async function compressRaster(bytes, config, options, onProgress, prefix) {
+  onProgress?.({ label: prefixedProgress(prefix, 'Analyzing PDF'), done: 0, total: 0 });
+  const analysisDoc = await PDFDocument.load(bytes, { updateMetadata: false });
+  const analysisGroups = collectImageGroups(analysisDoc, config.dpi);
+  const analysis = describePdfImages(
+    analysisDoc,
+    analysisGroups.groups,
+    analysisGroups.pagesWithImages,
+  );
+
+  const { doc, task } = await openForRendering(bytes.slice());
   const output = await PDFDocument.create();
   let clamped = false;
 
@@ -488,14 +901,16 @@ async function compressPdf(bytes, options, onProgress) {
 
     for (let index = 1; index <= total; index += 1) {
       onProgress?.({
-        label: `Rendering page ${index} of ${total}`,
+        label: prefixedProgress(prefix, `Rendering page ${index} of ${total}`),
         done: index - 1,
         total,
       });
       const page = await doc.getPage(index);
-      const { base, scale, clamped: hitLimit } = scaleForPage(page, dpi);
+      const { base, scale, clamped: hitLimit } = scaleForPage(page, config.dpi);
       clamped ||= hitLimit;
-      const image = await renderPage(page, scale, 'image/jpeg', quality);
+      const image = await renderPage(page, scale, 'image/jpeg', config.quality, {
+        grayscale: Boolean(options?.grayscale),
+      });
       const embedded = await output.embedJpg(new Uint8Array(await image.blob.arrayBuffer()));
       const outputPage = output.addPage([base.width, base.height]);
       outputPage.drawImage(embedded, {
@@ -507,22 +922,79 @@ async function compressPdf(bytes, options, onProgress) {
       page.cleanup();
     }
 
-    onProgress?.({ label: 'Writing PDF', done: total, total });
-    const now = new Date();
-    output.setTitle(options?.title || 'Compressed document');
-    output.setCreator('Reformat');
-    output.setProducer('Reformat');
-    output.setCreationDate(now);
-    output.setModificationDate(now);
-    const result = await output.save();
+    onProgress?.({
+      label: prefixedProgress(prefix, 'Writing PDF'),
+      done: total,
+      total,
+    });
+    const saved = await output.save({ useObjectStreams: true });
     return {
-      blob: new Blob([result], { type: 'application/pdf' }),
+      bytes: saved,
       pages: total,
+      analysis,
+      strategy: 'raster',
+      reencodedImages: total,
       clamped,
     };
   } finally {
     await task.destroy().catch(() => {});
   }
+}
+
+function prefixedProgress(prefix, label) {
+  return prefix ? `${prefix} · ${label}` : label;
+}
+
+async function compressPdf(bytes, options, onProgress) {
+  const strategy = options?.strategy === 'raster' ? 'raster' : 'keep';
+  const chosen = presetFor(options?.preset);
+  const targetValue = Number(options?.targetBytes);
+  const targetBytes =
+    Number.isFinite(targetValue) && targetValue >= 1024
+      ? targetValue
+      : null;
+  const attempts = attemptsFor({
+    preset: chosen.value,
+    targetEnabled: Boolean(targetBytes),
+  });
+
+  let best = null;
+  let attemptsRun = 0;
+  for (let index = 0; index < attempts.length; index += 1) {
+    attemptsRun += 1;
+    const attempt = attempts[index];
+    const prefix = attempts.length > 1 ? `Pass ${index + 1} of ${attempts.length}` : '';
+    const config = { dpi: attempt.dpi, quality: attempt.quality };
+    const result =
+      strategy === 'raster'
+        ? await compressRaster(bytes, config, options, onProgress, prefix)
+        : await compressKeepText(bytes, config, onProgress, prefix);
+
+    if (!best || result.bytes.length < best.bytes.length) {
+      best = { ...result, attempt: index + 1, preset: attempt.label };
+    }
+    if (!targetBytes || result.bytes.length <= targetBytes) break;
+  }
+
+  if (!best) throw new JobError('PDF_EMPTY', 'This PDF has no pages.');
+  const unchanged = best.bytes.length >= bytes.length;
+  const finalBytes = unchanged ? bytes : best.bytes;
+
+  return {
+    blob: new Blob([finalBytes], { type: 'application/pdf' }),
+    pages: best.pages,
+    analysis: best.analysis,
+    strategy,
+    preset: best.preset,
+    before: bytes.length,
+    after: finalBytes.length,
+    unchanged,
+    reencodedImages: best.reencodedImages,
+    clamped: Boolean(best.clamped),
+    targetBytes,
+    targetMet: targetBytes ? finalBytes.length <= targetBytes : true,
+    attempts: attemptsRun,
+  };
 }
 
 self.onmessage = async (event) => {
