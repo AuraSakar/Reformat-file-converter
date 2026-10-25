@@ -51,8 +51,10 @@ export default function Privacy() {
             PDF, Original quality embeds JPG and PNG data directly, so metadata already in those
             files can remain; Balanced and Small rebuild each page as a new JPEG, which removes it.
             Merge PDF and Split PDF copy the selected pages, so data inside those pages is kept.
-            Compress PDF rebuilds every page as a new image, so original text structure and
-            metadata are not copied into the result.
+            Compress PDF keeps selectable text by default, replaces page images only when a smaller
+            JPEG can be made, and strips document metadata and unused objects. Maximum compression
+            rebuilds every page as a new JPEG, so original text structure and metadata are not
+            copied into the result.
           </p>
         </section>
       </div>
