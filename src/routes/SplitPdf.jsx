@@ -26,7 +26,7 @@ function Thumbnail({ page, selected, onToggle, disabled = false }) {
       className="group min-w-0 rounded-[4px] text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span
-        className={`relative block aspect-[3/4] overflow-hidden rounded-[4px] border bg-white transition-colors duration-150 ${
+        className={`relative block aspect-[3/4] overflow-hidden rounded-[4px] border bg-page transition-colors duration-150 ${
           selected
             ? 'border-ink ring-1 ring-ink'
             : 'border-line-strong group-hover:border-ink'
@@ -40,7 +40,7 @@ function Thumbnail({ page, selected, onToggle, disabled = false }) {
           decoding="async"
         />
         {selected ? (
-          <span className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-[3px] bg-ink text-white">
+          <span className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-[3px] bg-ink text-inverse">
             <Check size={12} strokeWidth={2} aria-hidden="true" />
           </span>
         ) : null}

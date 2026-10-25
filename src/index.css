@@ -11,6 +11,17 @@
   --color-warn: #9a6700;
   --color-err: #b42318;
   --color-info: #1d5fa8;
+  --color-inverse: #ffffff;
+  --color-btn-bg: #16181d;
+  --color-btn-hover: #2a2d33;
+  --color-btn-active: #3a3e46;
+  --color-btn-ink: #ffffff;
+  --color-hover: rgba(22, 24, 29, 0.04);
+  --color-hover-subtle: rgba(22, 24, 29, 0.015);
+  --color-press: rgba(22, 24, 29, 0.06);
+  --color-surface-muted: #f2efe9;
+  --color-drag: #f5f2ec;
+  --color-page: #ffffff;
 
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
@@ -19,9 +30,34 @@
   --radius-control: 4px;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #111214;
+  --color-surface: #17191c;
+  --color-ink: #ecebe7;
+  --color-ink-2: #9a9ea6;
+  --color-line: #2a2d32;
+  --color-line-strong: #6f747d;
+  --color-ok: #63d19a;
+  --color-warn: #f0b429;
+  --color-err: #ff8a80;
+  --color-info: #82b7f0;
+  --color-inverse: #111214;
+  --color-btn-bg: #ecebe7;
+  --color-btn-hover: #ffffff;
+  --color-btn-active: #d9d8d3;
+  --color-btn-ink: #111214;
+  --color-hover: rgba(236, 235, 231, 0.07);
+  --color-hover-subtle: rgba(236, 235, 231, 0.03);
+  --color-press: rgba(236, 235, 231, 0.12);
+  --color-surface-muted: #1d2024;
+  --color-drag: #1c1f23;
+}
+
 @layer base {
   :root {
     color-scheme: light;
+    scrollbar-color: var(--color-line-strong) var(--color-bg);
   }
 
   html {
@@ -33,7 +69,8 @@
   }
 
   ::selection {
-    @apply bg-ink text-white;
+    background-color: var(--color-ink);
+    color: var(--color-inverse);
   }
 
   :focus-visible {

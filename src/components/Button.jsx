@@ -1,12 +1,12 @@
 const VARIANTS = {
   primary:
-    'bg-ink text-white hover:bg-[#2a2d34] active:bg-[#3a3e46] disabled:hover:bg-ink',
+    'bg-btn-bg text-btn-ink hover:bg-btn-hover active:bg-btn-active disabled:hover:bg-btn-bg',
   secondary:
-    'border border-line-strong bg-surface text-ink hover:bg-bg active:bg-[#f2f0eb]',
+    'border border-line-strong bg-surface text-ink hover:bg-hover active:bg-press',
   ghost:
-    'bg-transparent text-ink-2 hover:bg-black/[0.04] hover:text-ink active:bg-black/[0.06]',
+    'bg-transparent text-ink-2 hover:bg-hover hover:text-ink active:bg-press',
   danger:
-    'bg-transparent text-err hover:bg-err/[0.06] active:bg-err/[0.1]',
+    'bg-transparent text-err hover:bg-err/[0.08] active:bg-err/[0.14]',
 };
 
 const SIZES = {
@@ -36,8 +36,8 @@ export function Button({
 export function IconButton({ label, tone = 'default', className = '', children, ...props }) {
   const colors =
     tone === 'danger'
-      ? 'text-ink-2 hover:text-err hover:bg-err/[0.06]'
-      : 'text-ink-2 hover:text-ink hover:bg-black/[0.04]';
+      ? 'text-ink-2 hover:text-err hover:bg-err/[0.08]'
+      : 'text-ink-2 hover:text-ink hover:bg-hover';
   return (
     <button
       type="button"

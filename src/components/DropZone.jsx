@@ -22,7 +22,7 @@ export function DropZone({
   return (
     <div
       className={`rounded-[6px] border border-dashed p-4 transition-colors duration-150 sm:p-5 ${
-        dragActive ? 'border-ink bg-[#f5f2ec]' : 'border-line-strong bg-transparent'
+        dragActive ? 'border-ink bg-drag' : 'border-line-strong bg-transparent'
       } ${disabled ? 'opacity-60' : ''}`}
       onDragEnter={(event) => {
         event.preventDefault();

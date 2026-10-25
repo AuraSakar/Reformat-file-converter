@@ -68,9 +68,9 @@ export function PdfPagePreview({ settings, item, pageCount }) {
       <h2 id="page-preview-title" className="text-[12px] font-medium text-ink-2">
         Page preview
       </h2>
-      <div className="mt-3 flex justify-center rounded-[4px] bg-[#f2efe9] p-4">
+      <div className="mt-3 flex justify-center rounded-[4px] bg-surface-muted p-4">
         <div
-          className="relative w-full max-w-[196px] overflow-hidden border border-line bg-white"
+          className="relative w-full max-w-[196px] overflow-hidden border border-line bg-page"
           style={{ aspectRatio: `${box.pageWidth} / ${box.pageHeight}` }}
           role="img"
           aria-label={`Page preview: ${description}`}

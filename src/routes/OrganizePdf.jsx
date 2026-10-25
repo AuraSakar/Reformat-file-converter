@@ -53,7 +53,7 @@ function SortablePage({ page, position, disabled, onRotate, onDelete, canDelete 
         {...attributes}
         {...listeners}
         aria-label={`Reorder page ${page.page}. Press Space, then use the arrow keys.`}
-        className="relative block aspect-square w-full cursor-grab touch-none overflow-hidden bg-white focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink active:cursor-grabbing"
+        className="relative block aspect-square w-full cursor-grab touch-none overflow-hidden bg-page focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink active:cursor-grabbing"
         style={{ touchAction: 'none' }}
       >
         <img
@@ -64,7 +64,7 @@ function SortablePage({ page, position, disabled, onRotate, onDelete, canDelete 
           loading="lazy"
           decoding="async"
         />
-        <span className="mono absolute left-1.5 top-1.5 inline-flex min-w-5 items-center justify-center rounded-[3px] bg-ink px-1 py-0.5 text-[10px] leading-4 text-white">
+        <span className="mono absolute left-1.5 top-1.5 inline-flex min-w-5 items-center justify-center rounded-[3px] bg-ink px-1 py-0.5 text-[10px] leading-4 text-inverse">
           {position}
         </span>
       </div>

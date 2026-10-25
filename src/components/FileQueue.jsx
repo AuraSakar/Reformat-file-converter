@@ -162,7 +162,7 @@ function SortableFileRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`${gridClass} border-b border-line py-2.5 transition-colors duration-150 hover:bg-black/[0.015] ${
+      className={`${gridClass} border-b border-line py-2.5 transition-colors duration-150 hover:bg-hover-subtle ${
         isDragging ? 'relative z-10 bg-surface opacity-70' : ''
       }`}
     >
@@ -170,7 +170,7 @@ function SortableFileRow({
         <button
           ref={setActivatorNodeRef}
           type="button"
-          className="inline-flex size-10 cursor-grab sm:size-8 items-center justify-center rounded-[4px] text-ink-2 hover:bg-black/[0.04] hover:text-ink active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex size-10 cursor-grab sm:size-8 items-center justify-center rounded-[4px] text-ink-2 hover:bg-hover hover:text-ink active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
           style={{ touchAction: 'none' }}
           aria-label={`Reorder ${item.name}. Press Space, then use the arrow keys.`}
           title="Drag to reorder, or press Space and use arrow keys"
@@ -196,7 +196,7 @@ function SortableFileRow({
 function PlainFileRow({ item, gridClass, onRemove, onDownload, renderActions, removeDisabled, showOutput }) {
   return (
     <li
-      className={`${gridClass} border-b border-line py-2.5 transition-colors duration-150 hover:bg-black/[0.015]`}
+      className={`${gridClass} border-b border-line py-2.5 transition-colors duration-150 hover:bg-hover-subtle`}
     >
       <RowContent
         item={item}
