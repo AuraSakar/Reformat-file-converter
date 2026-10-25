@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RotateCw } from 'lucide-react';
+import { Download, RotateCw } from 'lucide-react';
 import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
@@ -688,6 +688,7 @@ export default function ImagesToPdf() {
                       onClick={downloadPdf}
                       disabled={busy}
                     >
+                      <Download size={15} strokeWidth={1.5} aria-hidden="true" />
                       Download PDF
                     </Button>
                   </>

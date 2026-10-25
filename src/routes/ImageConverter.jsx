@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Download } from 'lucide-react';
 import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
@@ -468,10 +469,15 @@ export default function ImageConverter() {
                   <Button
                     size="md"
                     variant="secondary"
-                    onClick={downloadAll}
+                    onClick={outputs.length === 1 ? () => downloadOne(outputs[0]) : downloadAll}
                     disabled={busy || zipping}
                   >
-                    {zipping ? 'Preparing ZIP…' : `Download ${outputs.length} as ZIP`}
+                    <Download size={15} strokeWidth={1.5} aria-hidden="true" />
+                    {zipping
+                      ? 'Preparing ZIP…'
+                      : outputs.length === 1
+                        ? 'Download'
+                        : 'Download all as ZIP'}
                   </Button>
                 ) : null}
                 <Button

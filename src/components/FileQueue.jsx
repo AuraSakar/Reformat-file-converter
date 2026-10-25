@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Download, GripVertical, X } from 'lucide-react';
-import { IconButton } from './Button';
+import { Button, IconButton } from './Button';
 import { formatBytes } from '../lib/format';
 
 const STATUS_TEXT = {
@@ -79,16 +79,12 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled,
         <p className="truncate text-[13px] font-medium text-ink" title={item.name}>
           {item.name}
         </p>
-        <p className="mt-0.5 text-[11px] leading-4 text-ink-2 md:hidden">
+        <p className="mt-0.5 whitespace-nowrap text-[11px] leading-4 text-ink-2 md:hidden">
           <span className={STATUS_COLOR[status]}>{item.statusText || STATUS_TEXT[status]}</span>
           <span aria-hidden="true"> · </span>
-          <span className="font-mono tabular-nums">{formatBytes(item.size)}</span>
-          {outputSize ? (
-            <>
-              <span aria-hidden="true"> → </span>
-              <span className="font-mono tabular-nums text-ok">{outputSize}</span>
-            </>
-          ) : null}
+          <span className={`font-mono tabular-nums ${outputSize ? 'text-ok' : ''}`}>
+            {outputSize || formatBytes(item.size)}
+          </span>
         </p>
         {item.detail && !item.error ? (
           <p className="mt-0.5 text-[11px] leading-4 text-ink-2">{item.detail}</p>
@@ -117,9 +113,15 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled,
       <div className="flex shrink-0 items-center justify-end gap-0.5 self-center">
         {renderActions ? renderActions(item) : null}
         {showDownload ? (
-          <IconButton label={`Download ${item.output.name}`} onClick={() => onDownload(item)}>
-            <Download size={16} strokeWidth={1.5} aria-hidden="true" />
-          </IconButton>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => onDownload(item)}
+            aria-label={`Download ${item.output.name}`}
+          >
+            <Download size={15} strokeWidth={1.5} aria-hidden="true" />
+            Download
+          </Button>
         ) : null}
         {onRemove ? (
           <IconButton
@@ -228,11 +230,11 @@ export function FileQueue({
 
   const gridClass = reorderable
     ? showOutput
-      ? 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3'
-      : 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_80px] md:gap-x-3'
+      ? 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_78px_152px] md:gap-x-3'
+      : 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_152px] md:gap-x-3'
     : showOutput
-      ? 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3'
-      : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_80px] md:gap-x-3';
+      ? 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_152px] md:gap-x-3'
+      : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_152px] md:gap-x-3';
 
   const header = (
     <div

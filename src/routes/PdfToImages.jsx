@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Download } from 'lucide-react';
 import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
@@ -370,6 +371,7 @@ export default function PdfToImages() {
                       onClick={() => downloadBlob(output.blob, output.name)}
                       disabled={busy}
                     >
+                      <Download size={15} strokeWidth={1.5} aria-hidden="true" />
                       Download ZIP
                     </Button>
                   </>
