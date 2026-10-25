@@ -54,3 +54,20 @@ async function detectEncoding(type) {
   }
   return false;
 }
+
+export function browserSupportsWasm() {
+  return typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
+}
+
+let avifDecodePromise = null;
+
+export function supportsAvifDecode() {
+  if (!avifDecodePromise) {
+    if (typeof ImageDecoder !== 'undefined' && 'isTypeSupported' in ImageDecoder) {
+      avifDecodePromise = ImageDecoder.isTypeSupported('image/avif').catch(() => true);
+    } else {
+      avifDecodePromise = Promise.resolve(true);
+    }
+  }
+  return avifDecodePromise;
+}

@@ -65,8 +65,10 @@ async function convertImage(payload, onProgress) {
     }
 
     const rotation = normalizeRotation(options.rotation);
-    const background =
-      options.type === 'image/jpeg' ? normalizeColor(options.background) : null;
+    const flattensTransparency =
+      options.type === 'image/jpeg' || options.type === 'image/bmp';
+    const background = flattensTransparency ? normalizeColor(options.background) : null;
+    const encodeOptions = { icoSizes: options.icoSizes };
     let baseScale = computeBaseScale(bitmap.width, bitmap.height, exifOrientation, options);
 
     const targetBytes =
@@ -93,16 +95,15 @@ async function convertImage(payload, onProgress) {
 
     if (!targetBytes) {
       onProgress?.({ label: 'Encoding image' });
-      const blob = await encodeCanvas(
-        canvas,
-        options.type,
-        options.type === 'image/png' ? undefined : clampQuality(options.quality),
-      );
+      const quality = qualityFormat(options.type)
+        ? clampQuality(options.quality)
+        : undefined;
+      const blob = await encodeCanvas(canvas, options.type, quality, encodeOptions);
       return {
         blob,
         width: canvas.width,
         height: canvas.height,
-        quality: options.type === 'image/png' ? null : clampQuality(options.quality),
+        quality: quality ?? null,
       };
     }
 
@@ -110,7 +111,7 @@ async function convertImage(payload, onProgress) {
       canvas,
       type: options.type,
       targetBytes,
-      encode: (target, quality) => encodeCanvas(target, options.type, quality),
+      encode: (target, quality) => encodeCanvas(target, options.type, quality, encodeOptions),
       downscale: downscaleCanvas,
       onProgress,
     });
@@ -295,11 +296,17 @@ async function decodeBitmap(source, kind, orientationHint = 1) {
     });
     return { bitmap, orientation };
   } catch {
+    const messages = {
+      svg: 'The SVG could not be rendered. It may contain unsupported markup.',
+      avif: 'This browser cannot decode AVIF. Try a current Chrome, Edge, Firefox or Safari.',
+      ico: 'This browser cannot decode this ICO file. Try converting it to PNG first.',
+      gif: 'This browser cannot decode this GIF. Try a current browser.',
+      bmp: 'This browser cannot decode this BMP. Try converting it to PNG first.',
+    };
     throw new JobError(
       kind === 'svg' ? 'SVG_DECODE_FAILED' : 'DECODE_FAILED',
-      kind === 'svg'
-        ? 'The SVG could not be rendered. It may contain unsupported markup.'
-        : 'The image could not be read. The file may be damaged or use a format this browser cannot decode.',
+      messages[kind] ||
+        'The image could not be read. The file may be damaged or use a format this browser cannot decode.',
     );
   }
 }
@@ -379,6 +386,7 @@ function renderCanvas({ bitmap, orientation, rotation, scale, background }) {
 }
 
 function computeBaseScale(width, height, orientation, options) {
+  if (options.type === 'image/x-icon') return 1;
   const [orientedWidth, orientedHeight] = orientedDimensions(width, height, orientation);
 
   if (options.resizeMode === 'percent') {
@@ -443,7 +451,12 @@ function downscaleCanvas(canvas, factor) {
   return next;
 }
 
-async function encodeCanvas(canvas, type, quality) {
+async function encodeCanvas(canvas, type, quality, options = {}) {
+  if (type === 'image/avif') return encodeAvif(canvas, quality);
+  if (type === 'image/gif') return encodeGif(canvas);
+  if (type === 'image/bmp') return encodeBmp(canvas);
+  if (type === 'image/x-icon') return encodeIco(canvas, options.icoSizes);
+
   if (typeof canvas.convertToBlob !== 'function') {
     throw new JobError(
       'BROWSER_UNSUPPORTED',
@@ -451,10 +464,12 @@ async function encodeCanvas(canvas, type, quality) {
     );
   }
 
-  const options = quality === undefined ? { type } : { type, quality };
+  const encodeQuality = qualityFormat(type) ? quality : undefined;
+  const encodeArgs =
+    encodeQuality === undefined ? { type } : { type, quality: encodeQuality };
   let blob;
   try {
-    blob = await canvas.convertToBlob(options);
+    blob = await canvas.convertToBlob(encodeArgs);
   } catch {
     throw new JobError('ENCODE_FAILED', 'The browser could not encode the output image.');
   }
@@ -473,6 +488,184 @@ async function encodeCanvas(canvas, type, quality) {
     throw new JobError('ENCODE_FAILED', 'The browser could not create the requested format.');
   }
   return blob;
+}
+
+let avifEncoderPromise = null;
+
+async function encodeAvif(canvas, quality) {
+  try {
+    if (!avifEncoderPromise) {
+      avifEncoderPromise = import('@jsquash/avif').then((module) => module.encode);
+    }
+    const encode = await avifEncoderPromise;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas unavailable.');
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const qualityPercent = Math.round(clampQuality(quality) * 100);
+    const buffer = await encode(imageData, {
+      quality: qualityPercent,
+      speed: 8,
+      lossless: qualityPercent >= 100,
+    });
+    return new Blob([buffer], { type: 'image/avif' });
+  } catch {
+    throw new JobError(
+      'AVIF_ENCODE_FAILED',
+      'AVIF encoding is not available in this browser. Choose JPG, PNG or WebP instead.',
+    );
+  }
+}
+
+let gifEncoderPromise = null;
+
+async function encodeGif(canvas) {
+  try {
+    if (!gifEncoderPromise) {
+      gifEncoderPromise = import('gifenc');
+    }
+    const { GIFEncoder, quantize, applyPalette } = await gifEncoderPromise;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas unavailable.');
+    const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let hasAlpha = false;
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] < 255) {
+        hasAlpha = true;
+        break;
+      }
+    }
+
+    const format = hasAlpha ? 'rgba4444' : 'rgb565';
+    const palette = quantize(
+      data,
+      256,
+      hasAlpha ? { format, oneBitAlpha: true, clearAlpha: true } : { format },
+    );
+    const index = applyPalette(data, palette, format);
+    let transparentIndex = -1;
+    if (hasAlpha) {
+      transparentIndex = palette.findIndex((color) => (color[3] ?? 255) === 0);
+    }
+
+    const gif = GIFEncoder();
+    gif.writeFrame(index, width, height, {
+      palette,
+      delay: 0,
+      transparent: transparentIndex >= 0,
+      transparentIndex: transparentIndex >= 0 ? transparentIndex : 0,
+    });
+    gif.finish();
+    return new Blob([gif.bytes()], { type: 'image/gif' });
+  } catch {
+    throw new JobError('GIF_ENCODE_FAILED', 'The GIF could not be encoded.');
+  }
+}
+
+function encodeBmp(canvas) {
+  const context = canvas.getContext('2d');
+  if (!context) throw new JobError('ENCODE_FAILED', 'Canvas unavailable.');
+  const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+  const rowSize = Math.ceil((width * 3) / 4) * 4;
+  const pixelBytes = rowSize * height;
+  const fileSize = 54 + pixelBytes;
+  const buffer = new ArrayBuffer(fileSize);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+
+  bytes[0] = 0x42;
+  bytes[1] = 0x4d;
+  view.setUint32(2, fileSize, true);
+  view.setUint32(10, 54, true);
+  view.setUint32(14, 40, true);
+  view.setInt32(18, width, true);
+  view.setInt32(22, height, true);
+  view.setUint16(26, 1, true);
+  view.setUint16(28, 24, true);
+  view.setUint32(34, pixelBytes, true);
+  view.setInt32(38, 2835, true);
+  view.setInt32(42, 2835, true);
+
+  for (let y = 0; y < height; y += 1) {
+    const sourceRow = height - 1 - y;
+    let offset = 54 + y * rowSize;
+    for (let x = 0; x < width; x += 1) {
+      const source = (sourceRow * width + x) * 4;
+      bytes[offset] = data[source + 2];
+      bytes[offset + 1] = data[source + 1];
+      bytes[offset + 2] = data[source];
+      offset += 3;
+    }
+  }
+
+  return new Blob([buffer], { type: 'image/bmp' });
+}
+
+async function encodeIco(canvas, requestedSizes) {
+  const sizes = [...new Set(requestedSizes ?? [])]
+    .map(Number)
+    .filter((size) => [16, 32, 48, 64, 128, 256].includes(size))
+    .sort((a, b) => a - b);
+  if (sizes.length === 0) {
+    throw new JobError('ICO_SIZES', 'Choose at least one ICO size.');
+  }
+
+  const pngs = [];
+  for (const size of sizes) {
+    const square = new OffscreenCanvas(size, size);
+    const context = square.getContext('2d');
+    if (!context) throw new JobError('ENCODE_FAILED', 'Canvas unavailable.');
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    const scale = Math.min(size / canvas.width, size / canvas.height);
+    const drawWidth = Math.max(1, Math.round(canvas.width * scale));
+    const drawHeight = Math.max(1, Math.round(canvas.height * scale));
+    context.drawImage(
+      canvas,
+      Math.round((size - drawWidth) / 2),
+      Math.round((size - drawHeight) / 2),
+      drawWidth,
+      drawHeight,
+    );
+    const blob = await square.convertToBlob({ type: 'image/png' });
+    pngs.push(new Uint8Array(await blob.arrayBuffer()));
+    square.width = 0;
+    square.height = 0;
+  }
+
+  const headerSize = 6 + sizes.length * 16;
+  const total = headerSize + pngs.reduce((sum, png) => sum + png.length, 0);
+  const buffer = new ArrayBuffer(total);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  view.setUint16(0, 0, true);
+  view.setUint16(2, 1, true);
+  view.setUint16(4, sizes.length, true);
+
+  let offset = headerSize;
+  sizes.forEach((size, index) => {
+    const entry = 6 + index * 16;
+    bytes[entry] = size >= 256 ? 0 : size;
+    bytes[entry + 1] = size >= 256 ? 0 : size;
+    bytes[entry + 2] = 0;
+    bytes[entry + 3] = 0;
+    view.setUint16(entry + 4, 1, true);
+    view.setUint16(entry + 6, 32, true);
+    view.setUint32(entry + 8, pngs[index].length, true);
+    view.setUint32(entry + 12, offset, true);
+    offset += pngs[index].length;
+  });
+
+  offset = headerSize;
+  for (const png of pngs) {
+    bytes.set(png, offset);
+    offset += png.length;
+  }
+
+  return new Blob([buffer], { type: 'image/x-icon' });
+}
+
+function qualityFormat(type) {
+  return type === 'image/jpeg' || type === 'image/webp' || type === 'image/avif';
 }
 
 function normalizeRotation(value) {

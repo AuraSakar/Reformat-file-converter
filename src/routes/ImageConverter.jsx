@@ -16,7 +16,11 @@ import {
   validateImageSettings,
   workerOptionsFor,
 } from '../lib/imageOptions';
-import { browserSupportsImageWorkers, supportsWebpEncode } from '../lib/imageSupport';
+import {
+  browserSupportsImageWorkers,
+  browserSupportsWasm,
+  supportsWebpEncode,
+} from '../lib/imageSupport';
 import { prepareImageSource } from '../lib/prepareImage';
 import { sniffFile } from '../lib/sniff';
 import { createImagePool } from '../workers/pool';
@@ -32,6 +36,7 @@ export default function ImageConverter() {
   const [dirty, setDirty] = useState(false);
   const [zipping, setZipping] = useState(false);
   const [webpSupported, setWebpSupported] = useState(null);
+  const [avifSupported] = useState(() => browserSupportsWasm());
   const [workersSupported] = useState(() => browserSupportsImageWorkers());
 
   const poolRef = useRef(null);
@@ -288,7 +293,7 @@ export default function ImageConverter() {
         output,
       });
 
-      if (item.kind === 'heic') {
+      if (item.kind === 'heic' || item.kind === 'tiff') {
         makeThumbnailFrom(item.id, prepared.blob, prepared.kind, 1);
       }
 
@@ -423,7 +428,7 @@ export default function ImageConverter() {
     <>
       <PageHeader
         title="Images"
-        description="Convert phone photos and scans to JPG, PNG or WebP. Set a target file size for upload limits."
+        description="Convert images to JPG, PNG, WebP, AVIF, GIF, BMP or ICO. Set a target file size for upload limits."
       />
       <DropZone
         title="Drop images here"
@@ -455,6 +460,7 @@ export default function ImageConverter() {
               onChange={changeSettings}
               disabled={busy}
               supportsWebp={webpSupported !== false}
+              supportsAvif={avifSupported}
               settingsError={settingsError}
             />
           </SettingsReveal>
@@ -504,8 +510,8 @@ export default function ImageConverter() {
           </div>
 
           <p className="mt-3 text-[12px] leading-5 text-ink-2">
-            JPG has no transparency, so transparent areas are filled with the chosen background.
-            Converted images are re-encoded and have their metadata removed.
+            JPG and BMP have no transparency, so transparent areas are filled with the chosen
+            background. Converted images are re-encoded and have their metadata removed.
           </p>
         </>
       ) : null}

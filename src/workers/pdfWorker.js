@@ -1,6 +1,6 @@
 import * as pdfjs from 'pdfjs-dist/build/pdf.min.mjs';
 import 'pdfjs-dist/build/pdf.worker.min.mjs';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, degrees } from 'pdf-lib';
 import { zipSync } from 'fflate';
 
 const MAX_CANVAS_DIMENSION = 16384;
@@ -178,7 +178,7 @@ async function renderPage(page, scale, type, quality) {
 
   const blob = await canvas.convertToBlob({
     type,
-    ...(type === 'image/jpeg' ? { quality } : {}),
+    ...(type === 'image/jpeg' || type === 'image/webp' ? { quality } : {}),
   });
   canvas.width = 0;
   canvas.height = 0;
@@ -269,6 +269,64 @@ async function splitPdf(bytes, pageNumbers, title) {
   return { blob: new Blob([result], { type: 'application/pdf' }), pages: indexes.length };
 }
 
+function pageGroupLabel(group, total) {
+  const digits = String(total).length;
+  const pad = (page) => String(page).padStart(digits, '0');
+  if (group.length === 1) return `page-${pad(group[0])}`;
+  const consecutive = group.every((page, index) => index === 0 || page === group[index - 1] + 1);
+  if (consecutive) return `pages-${pad(group[0])}-${pad(group[group.length - 1])}`;
+  return `pages-${group.map(pad).join('-')}`;
+}
+
+async function splitPdfGroups(bytes, groups, title) {
+  if (!Array.isArray(groups) || groups.length === 0) {
+    throw new JobError('NO_PAGES', 'Select at least one page to split.');
+  }
+
+  let source;
+  try {
+    source = await PDFDocument.load(bytes);
+  } catch (error) {
+    throw new JobError('PDF_UNREADABLE', friendlyMessage(error));
+  }
+
+  const total = source.getPageCount();
+  const entries = {};
+  let pages = 0;
+
+  for (const group of groups) {
+    if (!Array.isArray(group) || group.length === 0) {
+      throw new JobError('NO_PAGES', 'A split group had no pages.');
+    }
+    const indexes = group.map((page) => {
+      if (!Number.isInteger(page) || page < 1 || page > total) {
+        throw new JobError('BAD_RANGE', `Page ${page} is outside this ${total}-page PDF.`);
+      }
+      return page - 1;
+    });
+
+    const output = await PDFDocument.create();
+    const copied = await output.copyPages(source, indexes);
+    copied.forEach((page) => output.addPage(page));
+    const now = new Date();
+    output.setTitle(`${title} - ${pageGroupLabel(group, total)}`);
+    output.setCreator('Reformat');
+    output.setProducer('Reformat');
+    output.setCreationDate(now);
+    output.setModificationDate(now);
+    const result = await output.save();
+    entries[`${title}-${pageGroupLabel(group, total)}.pdf`] = new Uint8Array(result);
+    pages += group.length;
+  }
+
+  const zipped = zipSync(entries, { level: 0 });
+  return {
+    blob: new Blob([zipped], { type: 'application/zip' }),
+    pages,
+    files: groups.length,
+  };
+}
+
 async function mergePdfs(documents, title) {
   if (!Array.isArray(documents) || documents.length < 2) {
     throw new JobError('NOT_ENOUGH_FILES', 'Add at least two PDFs to merge.');
@@ -304,10 +362,61 @@ async function mergePdfs(documents, title) {
   return { blob: new Blob([result], { type: 'application/pdf' }), pages };
 }
 
+async function organizePdf(bytes, order, title) {
+  if (!Array.isArray(order) || order.length === 0) {
+    throw new JobError('NO_PAGES', 'Keep at least one page before saving.');
+  }
+
+  let source;
+  try {
+    source = await PDFDocument.load(bytes);
+  } catch (error) {
+    throw new JobError('PDF_UNREADABLE', friendlyMessage(error));
+  }
+
+  const total = source.getPageCount();
+  const seen = new Set();
+  for (const entry of order) {
+    const page = Number(entry?.page);
+    if (!Number.isInteger(page) || page < 1 || page > total) {
+      throw new JobError('BAD_PAGE', `Page ${entry?.page} is outside this ${total}-page PDF.`);
+    }
+    if (seen.has(page)) {
+      throw new JobError('DUPLICATE_PAGE', `Page ${page} appears more than once.`);
+    }
+    seen.add(page);
+  }
+
+  const output = await PDFDocument.create();
+  const copied = await output.copyPages(
+    source,
+    order.map((entry) => Number(entry.page) - 1),
+  );
+  copied.forEach((page, index) => {
+    const extra = [0, 90, 180, 270].includes(Number(order[index]?.rotation))
+      ? Number(order[index].rotation)
+      : 0;
+    const current = page.getRotation().angle || 0;
+    page.setRotation(degrees((current + extra) % 360));
+    output.addPage(page);
+  });
+
+  const now = new Date();
+  output.setTitle(title || 'Organized document');
+  output.setCreator('Reformat');
+  output.setProducer('Reformat');
+  output.setCreationDate(now);
+  output.setModificationDate(now);
+  const result = await output.save();
+  return { blob: new Blob([result], { type: 'application/pdf' }), pages: copied.length };
+}
+
 async function pdfToImages(bytes, options, onProgress) {
   const dpi = Number(options?.dpi) || 150;
-  const type = options?.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
-  const extension = type === 'image/jpeg' ? 'jpg' : 'png';
+  const type = ['image/png', 'image/jpeg', 'image/webp'].includes(options?.type)
+    ? options.type
+    : 'image/png';
+  const extension = type === 'image/jpeg' ? 'jpg' : type === 'image/webp' ? 'webp' : 'png';
   const baseName = options?.baseName || 'document';
 
   onProgress?.({ label: 'Opening PDF' });
@@ -319,18 +428,32 @@ async function pdfToImages(bytes, options, onProgress) {
     const total = doc.numPages;
     if (!total) throw new JobError('PDF_EMPTY', 'This PDF has no pages.');
     const digits = String(total).length;
+    const requested =
+      Array.isArray(options?.pages) && options.pages.length > 0
+        ? [...new Set(options.pages)].sort((a, b) => a - b)
+        : Array.from({ length: total }, (_, index) => index + 1);
 
-    for (let index = 1; index <= total; index += 1) {
+    for (let index = 0; index < requested.length; index += 1) {
+      const pageNumber = Number(requested[index]);
+      if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > total) {
+        throw new JobError('BAD_RANGE', `Page ${requested[index]} is outside this ${total}-page PDF.`);
+      }
       onProgress?.({
-        label: `Rendering page ${index} of ${total}`,
-        done: index - 1,
-        total,
+        label: `Rendering page ${pageNumber} of ${total}`,
+        done: index,
+        total: requested.length,
       });
-      const page = await doc.getPage(index);
+      const page = await doc.getPage(pageNumber);
       const { base, scale, clamped: hitLimit } = scaleForPage(page, dpi);
       clamped ||= hitLimit;
       const image = await renderPage(page, scale, type, 0.9);
-      const name = `${baseName}-page-${String(index).padStart(digits, '0')}.${extension}`;
+      if (image.blob.type !== type) {
+        throw new JobError(
+          'IMAGE_FORMAT_UNSUPPORTED',
+          'This browser cannot encode the selected image format. Choose PNG or JPG instead.',
+        );
+      }
+      const name = `${baseName}-page-${String(pageNumber).padStart(digits, '0')}.${extension}`;
       entries[name] = new Uint8Array(await image.blob.arrayBuffer());
       page.cleanup();
       if (base.width <= 0 || base.height <= 0) {
@@ -338,11 +461,11 @@ async function pdfToImages(bytes, options, onProgress) {
       }
     }
 
-    onProgress?.({ label: 'Packing ZIP', done: total, total });
+    onProgress?.({ label: 'Packing ZIP', done: requested.length, total: requested.length });
     const zipped = zipSync(entries, { level: 0 });
     return {
       blob: new Blob([zipped], { type: 'application/zip' }),
-      pages: total,
+      pages: requested.length,
       clamped,
     };
   } finally {
@@ -418,6 +541,10 @@ self.onmessage = async (event) => {
       result = await splitPdf(payload.bytes, payload.pages, payload.title);
     } else if (action === 'merge') {
       result = await mergePdfs(payload.documents, payload.title);
+    } else if (action === 'split-zip') {
+      result = await splitPdfGroups(payload.bytes, payload.groups, payload.title);
+    } else if (action === 'organize') {
+      result = await organizePdf(payload.bytes, payload.order, payload.title);
     } else if (action === 'pdf-to-images') {
       result = await pdfToImages(payload.bytes, payload.options, (progress) => {
         self.postMessage({ id, type: 'progress', progress });
@@ -425,6 +552,16 @@ self.onmessage = async (event) => {
     } else if (action === 'compress') {
       result = await compressPdf(payload.bytes, payload.options, (progress) => {
         self.postMessage({ id, type: 'progress', progress });
+      });
+    } else if (action === 'text-to-pdf') {
+      const { buildTextPdf } = await import('../lib/textPdf.js');
+      result = await buildTextPdf({
+        text: payload.text,
+        options: payload.options,
+        title: payload.title,
+        onProgress: (progress) => {
+          self.postMessage({ id, type: 'progress', progress });
+        },
       });
     } else {
       throw new JobError('UNKNOWN_ACTION', 'Unknown PDF action.');

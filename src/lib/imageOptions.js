@@ -1,4 +1,8 @@
-import { OUTPUT_FORMATS } from './config';
+import { ICO_SIZES, OUTPUT_FORMATS } from './config';
+
+export const DEFAULT_ICO_SIZES = Object.freeze([16, 32, 48, 256]);
+export const QUALITY_FORMATS = new Set(['image/jpeg', 'image/webp', 'image/avif']);
+export const TARGET_FORMATS = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 
 export const DEFAULT_IMAGE_SETTINGS = Object.freeze({
   format: 'image/jpeg',
@@ -12,10 +16,19 @@ export const DEFAULT_IMAGE_SETTINGS = Object.freeze({
   percent: '100',
   rotation: 0,
   background: '#ffffff',
+  icoSizes: [...DEFAULT_ICO_SIZES],
 });
 
 export function validateImageSettings(settings) {
-  if (settings.targetEnabled) {
+  if (settings.format === 'image/x-icon') {
+    const sizes = Array.isArray(settings.icoSizes) ? settings.icoSizes : [];
+    if (sizes.length === 0) return 'Choose at least one ICO size.';
+    if (sizes.some((size) => !ICO_SIZES.includes(Number(size)))) {
+      return 'Choose only the standard ICO sizes.';
+    }
+  }
+
+  if (settings.targetEnabled && TARGET_FORMATS.has(settings.format)) {
     const value = Number(settings.targetValue);
     const multiplier = settings.targetUnit === 'MB' ? 1024 * 1024 : 1024;
     const bytes = value * multiplier;
@@ -67,12 +80,13 @@ export function workerOptionsFor(settings) {
   return {
     type: settings.format,
     quality: Number(settings.quality),
+    icoSizes: Array.isArray(settings.icoSizes) ? settings.icoSizes.map(Number) : [],
     resizeMode: settings.resizeMode,
     maxWidth: String(settings.maxWidth).trim(),
     maxHeight: String(settings.maxHeight).trim(),
     percent: String(settings.percent).trim(),
     rotation: Number(settings.rotation),
     background: settings.background,
-    targetBytes: targetBytesFor(settings),
+    targetBytes: TARGET_FORMATS.has(settings.format) ? targetBytesFor(settings) : null,
   };
 }

@@ -32,7 +32,7 @@ function unsupported(label) {
   return {
     kind: 'unsupported',
     label,
-    message: `${label} files are not supported. Choose JPG, PNG, WebP, GIF, BMP, SVG, HEIC or PDF.`,
+    message: `${label} files are not supported. Choose JPG, PNG, WebP, AVIF, GIF, BMP, SVG, ICO, HEIC, TIFF or PDF.`,
   };
 }
 
@@ -77,6 +77,17 @@ export async function sniffFile(file) {
   if (startsWith(bytes, [0x42, 0x4d])) {
     return imageResult('bmp');
   }
+  if (startsWith(bytes, [0x00, 0x00, 0x01, 0x00])) {
+    return imageResult('ico');
+  }
+  if (
+    startsWith(bytes, [0x49, 0x49, 0x2a, 0x00]) ||
+    startsWith(bytes, [0x4d, 0x4d, 0x00, 0x2a]) ||
+    startsWith(bytes, [0x49, 0x49, 0x2b, 0x00]) ||
+    startsWith(bytes, [0x4d, 0x4d, 0x00, 0x2b])
+  ) {
+    return imageResult('tiff');
+  }
   if (
     startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
     ascii(bytes, 8, 12) === 'WEBP'
@@ -90,7 +101,7 @@ export async function sniffFile(file) {
       brands.push(ascii(bytes, offset, offset + 4));
     }
     if (brands.some((brand) => AVIF_BRANDS.has(brand))) {
-      return unsupported('AVIF');
+      return imageResult('avif');
     }
     if (brands.some((brand) => HEIC_BRANDS.has(brand))) {
       return imageResult('heic');
@@ -110,11 +121,12 @@ export async function sniffFile(file) {
   return {
     kind: 'unsupported',
     label: 'Unknown',
-    message: `${file.name} is not a supported file. Choose JPG, PNG, WebP, GIF, BMP, SVG, HEIC or PDF.`,
+    message: `${file.name} is not a supported file. Choose JPG, PNG, WebP, AVIF, GIF, BMP, SVG, ICO, HEIC, TIFF or PDF.`,
   };
 }
 
 export function extensionForKind(kind) {
   if (kind === 'jpeg') return 'jpg';
+  if (kind === 'tiff') return 'tiff';
   return kind;
 }

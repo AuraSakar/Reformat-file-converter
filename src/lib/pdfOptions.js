@@ -1,6 +1,8 @@
 export const PDF_PAGE_SIZES = Object.freeze([
   { value: 'a4', label: 'A4' },
+  { value: 'a3', label: 'A3' },
   { value: 'letter', label: 'Letter' },
+  { value: 'legal', label: 'Legal' },
   { value: 'match', label: 'Fit image' },
 ]);
 
@@ -14,6 +16,7 @@ export const PDF_MARGINS = Object.freeze([
   { value: 'none', label: 'None', points: 0, hint: 'Images extend to the page edge.' },
   { value: 'small', label: 'Small', points: 18, hint: 'A 0.25 in margin around each image.' },
   { value: 'normal', label: 'Normal', points: 36, hint: 'A 0.5 in margin around each image.' },
+  { value: 'wide', label: 'Wide', points: 54, hint: 'A 0.75 in margin around each image.' },
 ]);
 
 export const PDF_FITS = Object.freeze([
@@ -55,7 +58,9 @@ export const DEFAULT_PDF_SETTINGS = Object.freeze({
 
 export const PAGE_BASE_SIZES = Object.freeze({
   a4: { width: 595.28, height: 841.89 },
+  a3: { width: 841.89, height: 1190.55 },
   letter: { width: 612, height: 792 },
+  legal: { width: 612, height: 1008 },
 });
 
 export const MATCH_LONG_SIDE = 842;
