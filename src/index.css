@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #faf9f6;
+  --color-surface: #ffffff;
+  --color-ink: #16181d;
+  --color-ink-2: #5b6068;
+  --color-line: #e3e1db;
+  --color-line-strong: #cbc8c0;
+  --color-ok: #1f7a4d;
+  --color-warn: #9a6700;
+  --color-err: #b42318;
+  --color-info: #1d5fa8;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-control: 4px;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg font-sans text-[14px] leading-5 text-ink antialiased;
+  }
+
+  ::selection {
+    @apply bg-ink text-white;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  input[type="range"] {
+    accent-color: var(--color-ink);
+  }
+
+  summary {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .field-label {
+    @apply mb-1.5 block text-[12px] font-medium text-ink-2;
+  }
+
+  .field-hint {
+    @apply mt-1.5 text-[12px] leading-4 text-ink-2;
+  }
+
+  .control {
+    @apply min-h-10 w-full rounded-[4px] border border-line bg-surface px-2.5 text-[13px] text-ink outline-none transition-colors duration-150 focus-visible:border-ink disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .control-sm {
+    @apply min-h-9 text-[12px];
+  }
+
+  .mono {
+    @apply font-mono tabular-nums;
+  }
+
+  .hairline {
+    @apply border-line;
+  }
+
+  .status-dot {
+    @apply inline-block size-1.5 shrink-0 rounded-full bg-current;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
