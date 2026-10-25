@@ -4,6 +4,8 @@ A small, browser-based file converter for students. Convert phone photos, build 
 images, merge and split PDFs, export PDF pages as images, and compress PDFs. Files are processed
 on the device and are never uploaded.
 
+**Live:** [reformat-file-converter.vercel.app](https://reformat-file-converter.vercel.app)
+
 ## Tools
 
 - **Images** - JPG, PNG, WebP, GIF (first frame), BMP, SVG and HEIC/HEIF to JPG, PNG or WebP.
@@ -57,7 +59,9 @@ npm run preview
 
 ## Deploy to Vercel
 
-The repository is ready for Vercel's Vite preset. `vercel.json` defines the SPA fallback,
+The live production project is connected to this GitHub repository and deploys `main`
+automatically at <https://reformat-file-converter.vercel.app>. The repository is ready for
+Vercel's Vite preset. `vercel.json` defines the SPA fallback,
 immutable caching for hashed `/assets/*` files, and security headers including a content security
 policy that allows self-hosted workers, blob workers, blob/data images and WebAssembly. The CSP
 also allows `'unsafe-eval'` because the bundled HEIC decoder needs it; the app loads no third-party
