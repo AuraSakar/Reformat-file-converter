@@ -151,3 +151,10 @@ export function createImagePool() {
     imagePoolSize(),
   );
 }
+
+export function createPdfPool() {
+  return new WorkerPool(
+    () => new Worker(new URL('./pdfWorker.js', import.meta.url), { type: 'module' }),
+    1,
+  );
+}

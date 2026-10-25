@@ -50,7 +50,9 @@ export default function Privacy() {
             Converted images are re-encoded, which removes EXIF and other metadata. In Images to
             PDF, Original quality embeds JPG and PNG data directly, so metadata already in those
             files can remain; Balanced and Small rebuild each page as a new JPEG, which removes it.
-            PDF tools that copy pages preserve the data inside the selected PDFs.
+            Merge PDF and Split PDF copy the selected pages, so data inside those pages is kept.
+            Compress PDF rebuilds every page as a new image, so original text structure and
+            metadata are not copied into the result.
           </p>
         </section>
       </div>

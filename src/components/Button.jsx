@@ -10,7 +10,7 @@ const VARIANTS = {
 };
 
 const SIZES = {
-  sm: 'min-h-9 px-2.5 text-[12px]',
+  sm: 'min-h-10 px-2.5 text-[12px] sm:min-h-9',
   md: 'min-h-10 px-3.5 text-[13px] sm:min-h-9',
 };
 

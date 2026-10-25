@@ -65,7 +65,7 @@ function Thumb({ item }) {
   );
 }
 
-function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled }) {
+function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled, showOutput }) {
   const status = item.status in STATUS_TEXT ? item.status : 'ready';
   const showDownload = Boolean(onDownload) && status === 'done' && item.output?.blob;
   const outputSize = item.output?.size ? formatBytes(item.output.size) : '';
@@ -90,6 +90,9 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled 
             </>
           ) : null}
         </p>
+        {item.detail && !item.error ? (
+          <p className="mt-0.5 text-[11px] leading-4 text-ink-2">{item.detail}</p>
+        ) : null}
         {item.error ? (
           <p className="mt-1 max-w-[70ch] text-[12px] leading-4 text-err">{item.error}</p>
         ) : null}
@@ -102,12 +105,14 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled 
       <div className="hidden min-w-0 self-center md:flex">
         <Status item={item} />
       </div>
-      <div
-        className="mono hidden self-center text-right text-[12px] text-ink-2 md:block"
-        title={item.output?.note || ''}
-      >
-        {outputLabel}
-      </div>
+      {showOutput ? (
+        <div
+          className="mono hidden self-center text-right text-[12px] text-ink-2 md:block"
+          title={item.output?.note || ''}
+        >
+          {outputLabel}
+        </div>
+      ) : null}
 
       <div className="flex shrink-0 items-center justify-end gap-0.5 self-center">
         {renderActions ? renderActions(item) : null}
@@ -139,6 +144,7 @@ function SortableFileRow({
   renderActions,
   removeDisabled,
   reorderDisabled,
+  showOutput,
 }) {
   const {
     attributes,
@@ -179,12 +185,13 @@ function SortableFileRow({
         onDownload={onDownload}
         renderActions={renderActions}
         removeDisabled={removeDisabled}
+        showOutput={showOutput}
       />
     </li>
   );
 }
 
-function PlainFileRow({ item, gridClass, onRemove, onDownload, renderActions, removeDisabled }) {
+function PlainFileRow({ item, gridClass, onRemove, onDownload, renderActions, removeDisabled, showOutput }) {
   return (
     <li
       className={`${gridClass} border-b border-line py-2.5 transition-colors duration-150 hover:bg-black/[0.015]`}
@@ -195,6 +202,7 @@ function PlainFileRow({ item, gridClass, onRemove, onDownload, renderActions, re
         onDownload={onDownload}
         renderActions={renderActions}
         removeDisabled={removeDisabled}
+        showOutput={showOutput}
       />
     </li>
   );
@@ -209,6 +217,7 @@ export function FileQueue({
   reorderDisabled = false,
   renderActions,
   removeDisabled = false,
+  showOutput = true,
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -218,8 +227,12 @@ export function FileQueue({
   if (items.length === 0) return null;
 
   const gridClass = reorderable
-    ? 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3'
-    : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3';
+    ? showOutput
+      ? 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3'
+      : 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_80px] md:gap-x-3'
+    : showOutput
+      ? 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3'
+      : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_80px] md:gap-x-3';
 
   const header = (
     <div
@@ -232,7 +245,7 @@ export function FileQueue({
       <div className="hidden md:block">Type</div>
       <div className="hidden text-right md:block">Size</div>
       <div className="hidden md:block">Status</div>
-      <div className="hidden text-right md:block">Output</div>
+      {showOutput ? <div className="hidden text-right md:block">Output</div> : null}
       <div />
     </div>
   );
@@ -252,6 +265,7 @@ export function FileQueue({
               renderActions={renderActions}
               removeDisabled={removeDisabled}
               reorderDisabled={reorderDisabled}
+              showOutput={showOutput}
             />
           ))}
         </ul>
@@ -285,6 +299,7 @@ export function FileQueue({
                 onDownload={onDownload}
                 renderActions={renderActions}
                 removeDisabled={removeDisabled}
+                showOutput={showOutput}
               />
             ))}
           </ul>
