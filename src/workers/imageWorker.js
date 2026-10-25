@@ -1,5 +1,6 @@
 import { fitCanvasUnderTarget, TargetSizeError } from '../lib/targetSize';
 import { normalizeJpegOrientation } from '../lib/exif';
+import { pageBoxFor } from '../lib/pdfOptions';
 
 const MAX_CANVAS_DIMENSION = 16384;
 const MAX_OUTPUT_PIXELS = 100_000_000;
@@ -24,6 +25,10 @@ self.onmessage = async (event) => {
       });
     } else if (action === 'thumbnail') {
       result = await createThumbnail(payload);
+    } else if (action === 'pdf-page') {
+      result = await renderPdfPage(payload, (progress) => {
+        self.postMessage({ id, type: 'progress', progress });
+      });
     } else {
       throw new JobError('UNKNOWN_ACTION', 'Unknown conversion action.');
     }
@@ -139,7 +144,121 @@ async function createThumbnail({ source, kind, orientation = 1 }) {
       background: null,
     });
     const blob = await encodeCanvas(canvas, 'image/png');
-    return { blob };
+    return { blob, width: orientedWidth, height: orientedHeight };
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function renderPdfPage(payload, onProgress) {
+  const { source, kind, options } = payload;
+  if (!source || !options) {
+    throw new JobError('INVALID_JOB', 'The PDF page settings were incomplete.');
+  }
+
+  onProgress?.({ label: 'Reading image' });
+  const decoded = await decodeBitmap(source, kind, 1);
+  const bitmap = decoded.bitmap;
+
+  try {
+    const rotation = normalizeRotation(options.rotation);
+    const [orientedWidth, orientedHeight] = orientedDimensions(
+      bitmap.width,
+      bitmap.height,
+      decoded.orientation,
+    );
+    const swap = rotation === 90 || rotation === 270;
+    const displayWidth = swap ? orientedHeight : orientedWidth;
+    const displayHeight = swap ? orientedWidth : orientedHeight;
+    if (!displayWidth || !displayHeight) {
+      throw new JobError('DECODE_FAILED', 'The image has no readable dimensions.');
+    }
+
+    const box = pageBoxFor({
+      pageSize: options.pageSize,
+      orientation: options.orientation,
+      margin: options.margin,
+      aspect: displayWidth / displayHeight,
+    });
+
+    let dpi = Number(options.dpi);
+    if (!Number.isFinite(dpi) || dpi <= 0) dpi = 150;
+    dpi = Math.max(
+      36,
+      Math.min(
+        dpi,
+        (MAX_CANVAS_DIMENSION * 72) / Math.max(box.pageWidth, box.pageHeight),
+        Math.sqrt((MAX_OUTPUT_PIXELS * 72 * 72) / (box.pageWidth * box.pageHeight)),
+      ),
+    );
+
+    // Keep the page raster at the requested DPI unless it would exceed the
+    // canvas limits; the image itself is fitted separately below.
+    const pageWidth = Math.max(1, Math.round((box.pageWidth * dpi) / 72));
+    const pageHeight = Math.max(1, Math.round((box.pageHeight * dpi) / 72));
+    const canvas = new OffscreenCanvas(pageWidth, pageHeight);
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new JobError('CANVAS_FAILED', 'This browser could not create a page canvas.');
+    }
+
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, pageWidth, pageHeight);
+
+    const marginPixels = (box.margin * dpi) / 72;
+    const contentWidth = Math.max(1, pageWidth - marginPixels * 2);
+    const contentHeight = Math.max(1, pageHeight - marginPixels * 2);
+    const scale =
+      options.fit === 'fill'
+        ? Math.max(contentWidth / displayWidth, contentHeight / displayHeight)
+        : Math.min(contentWidth / displayWidth, contentHeight / displayHeight);
+
+    let renderScale = scale;
+    renderScale = Math.min(
+      renderScale,
+      (MAX_CANVAS_DIMENSION * 0.98) / Math.max(displayWidth, displayHeight),
+      (Math.sqrt(MAX_OUTPUT_PIXELS / (displayWidth * displayHeight)) * 0.98),
+    );
+    renderScale = Math.max(renderScale, 0.001);
+
+    onProgress?.({ label: 'Rendering page' });
+    const rendered = renderCanvas({
+      bitmap,
+      orientation: decoded.orientation,
+      rotation,
+      scale: renderScale,
+      background: null,
+    });
+
+    const drawWidth = displayWidth * scale;
+    const drawHeight = displayHeight * scale;
+    const x = (pageWidth - drawWidth) / 2;
+    const y = (pageHeight - drawHeight) / 2;
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+
+    if (options.fit === 'fill') {
+      context.save();
+      context.beginPath();
+      context.rect(marginPixels, marginPixels, contentWidth, contentHeight);
+      context.clip();
+    }
+    context.drawImage(rendered, x, y, drawWidth, drawHeight);
+    if (options.fit === 'fill') context.restore();
+
+    onProgress?.({ label: 'Encoding page' });
+    const quality = clampQuality(options.quality ?? 0.82);
+    const blob = await encodeCanvas(canvas, 'image/jpeg', quality);
+
+    return {
+      blob,
+      pageWidth: box.pageWidth,
+      pageHeight: box.pageHeight,
+      width: pageWidth,
+      height: pageHeight,
+      dpi: Math.round(dpi),
+    };
   } finally {
     bitmap.close();
   }

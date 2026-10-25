@@ -47,9 +47,10 @@ export default function Privacy() {
         <section>
           <h2 className="mb-1 text-[15px] font-semibold text-ink">Metadata</h2>
           <p>
-            Converted images are re-encoded, which removes EXIF and other metadata. PDF page
-            extraction and merging preserve the data inside the selected PDFs. Image-based PDF
-            tools keep only what is drawn into the new pages.
+            Converted images are re-encoded, which removes EXIF and other metadata. In Images to
+            PDF, Original quality embeds JPG and PNG data directly, so metadata already in those
+            files can remain; Balanced and Small rebuild each page as a new JPEG, which removes it.
+            PDF tools that copy pages preserve the data inside the selected PDFs.
           </p>
         </section>
       </div>

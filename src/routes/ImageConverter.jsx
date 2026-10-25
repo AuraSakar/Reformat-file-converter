@@ -16,8 +16,7 @@ import {
   workerOptionsFor,
 } from '../lib/imageOptions';
 import { browserSupportsImageWorkers, supportsWebpEncode } from '../lib/imageSupport';
-import { convertHeicToJpeg } from '../lib/heic';
-import { rasterizeSvg } from '../lib/svg';
+import { prepareImageSource } from '../lib/prepareImage';
 import { sniffFile } from '../lib/sniff';
 import { createImagePool } from '../workers/pool';
 import { createZip } from '../lib/zip';
@@ -128,35 +127,7 @@ export default function ImageConverter() {
       const cached = preparedRef.current.get(item.id);
       if (cached) return cached;
 
-      const promise = (async () => {
-        if (item.kind === 'heic') {
-          try {
-            const blob = await convertHeicToJpeg(item.file);
-            return { blob, kind: 'jpeg', orientation: 1 };
-          } catch {
-            const error = new Error(
-              'The HEIC file could not be decoded. It may be damaged or use a format this browser cannot read.',
-            );
-            error.code = 'HEIC_DECODE_FAILED';
-            throw error;
-          }
-        }
-        if (item.kind === 'svg') {
-          try {
-            const rasterized = await rasterizeSvg(item.file);
-            return { blob: rasterized.blob, kind: 'png', orientation: 1 };
-          } catch (error) {
-            const failure = new Error(error?.message || 'The SVG could not be rendered.');
-            failure.code = 'SVG_DECODE_FAILED';
-            throw failure;
-          }
-        }
-        return {
-          blob: item.file,
-          kind: item.kind,
-          orientation: 1,
-        };
-      })();
+      const promise = prepareImageSource(item.file, item.kind);
 
       preparedRef.current.set(item.id, promise);
       promise.catch(() => preparedRef.current.delete(item.id));

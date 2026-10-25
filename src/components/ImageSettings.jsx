@@ -51,7 +51,7 @@ export function ImageSettings({
                   onChange={() => set({ format: format.value })}
                   className="peer sr-only"
                 />
-                <span className="flex min-h-9 cursor-pointer items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
+                <span className="flex min-h-10 cursor-pointer sm:min-h-9 items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[12px] text-ink-2 transition-colors duration-150 peer-checked:border-ink peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
                   {format.label}
                 </span>
               </label>
@@ -86,7 +86,7 @@ export function ImageSettings({
             value={settings.quality}
             disabled={qualityDisabled}
             onChange={(event) => set({ quality: Number(event.target.value) })}
-            className="h-8 w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-10 w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 sm:h-8"
           />
           <p className="text-[12px] leading-4 text-ink-2">
             {settings.format === 'image/png'
@@ -97,7 +97,7 @@ export function ImageSettings({
       </SettingsGroup>
 
       <SettingsGroup title="Target file size">
-        <label className="flex min-h-8 cursor-pointer items-center gap-2 text-[13px] text-ink">
+        <label className="flex min-h-10 cursor-pointer items-center gap-2 text-[13px] text-ink sm:min-h-8">
           <input
             type="checkbox"
             checked={settings.targetEnabled}
@@ -267,7 +267,7 @@ export function ImageSettings({
                 value={settings.background}
                 disabled={disabled}
                 onChange={(event) => set({ background: event.target.value })}
-                className="h-9 w-10 cursor-pointer rounded-[4px] border border-line bg-surface p-0.5 disabled:opacity-40"
+                className="h-10 w-10 cursor-pointer rounded-[4px] border border-line bg-surface p-0.5 disabled:opacity-40 sm:h-9"
               />
               <span className="mono text-[12px] uppercase text-ink-2">{settings.background}</span>
             </div>

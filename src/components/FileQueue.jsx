@@ -51,7 +51,8 @@ function Thumb({ item }) {
         <img
           src={item.thumbUrl}
           alt=""
-          className="size-full object-cover"
+          className="size-full object-cover transition-transform duration-150"
+          style={item.rotation ? { transform: `rotate(${item.rotation}deg)` } : undefined}
           loading="lazy"
           decoding="async"
         />
@@ -68,6 +69,7 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled 
   const status = item.status in STATUS_TEXT ? item.status : 'ready';
   const showDownload = Boolean(onDownload) && status === 'done' && item.output?.blob;
   const outputSize = item.output?.size ? formatBytes(item.output.size) : '';
+  const outputLabel = outputSize || (item.pageNumber ? `Page ${item.pageNumber}` : '');
 
   return (
     <>
@@ -104,7 +106,7 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled 
         className="mono hidden self-center text-right text-[12px] text-ink-2 md:block"
         title={item.output?.note || ''}
       >
-        {outputSize || ''}
+        {outputLabel}
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-0.5 self-center">
@@ -129,7 +131,15 @@ function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled 
   );
 }
 
-function SortableFileRow({ item, gridClass, onRemove, onDownload, renderActions, removeDisabled }) {
+function SortableFileRow({
+  item,
+  gridClass,
+  onRemove,
+  onDownload,
+  renderActions,
+  removeDisabled,
+  reorderDisabled,
+}) {
   const {
     attributes,
     listeners,
@@ -138,7 +148,7 @@ function SortableFileRow({ item, gridClass, onRemove, onDownload, renderActions,
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({ id: item.id, disabled: reorderDisabled });
 
   return (
     <li
@@ -152,10 +162,11 @@ function SortableFileRow({ item, gridClass, onRemove, onDownload, renderActions,
         <button
           ref={setActivatorNodeRef}
           type="button"
-          className="inline-flex size-8 cursor-grab items-center justify-center rounded-[4px] text-ink-2 hover:bg-black/[0.04] hover:text-ink active:cursor-grabbing"
+          className="inline-flex size-10 cursor-grab sm:size-8 items-center justify-center rounded-[4px] text-ink-2 hover:bg-black/[0.04] hover:text-ink active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
           style={{ touchAction: 'none' }}
           aria-label={`Reorder ${item.name}. Press Space, then use the arrow keys.`}
           title="Drag to reorder, or press Space and use arrow keys"
+          disabled={reorderDisabled}
           {...attributes}
           {...listeners}
         >
@@ -195,6 +206,7 @@ export function FileQueue({
   onDownload,
   onReorder,
   reorderable = false,
+  reorderDisabled = false,
   renderActions,
   removeDisabled = false,
 }) {
@@ -206,8 +218,8 @@ export function FileQueue({
   if (items.length === 0) return null;
 
   const gridClass = reorderable
-    ? 'grid grid-cols-[30px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[30px_40px_minmax(0,1fr)_58px_78px_112px_78px_auto] md:gap-x-3'
-    : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_auto] md:gap-x-3';
+    ? 'grid grid-cols-[40px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[32px_40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3'
+    : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_80px] md:gap-x-3';
 
   const header = (
     <div
@@ -239,6 +251,7 @@ export function FileQueue({
               onDownload={onDownload}
               renderActions={renderActions}
               removeDisabled={removeDisabled}
+              reorderDisabled={reorderDisabled}
             />
           ))}
         </ul>
@@ -251,7 +264,7 @@ export function FileQueue({
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={({ active, over }) => {
-        if (!over || active.id === over.id) return;
+        if (reorderDisabled || !over || active.id === over.id) return;
         const ids = items.map((item) => item.id);
         const oldIndex = ids.indexOf(active.id);
         const newIndex = ids.indexOf(over.id);
