@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { ThemeToggle } from './components/ThemeToggle';
 import { ToastProvider } from './components/Toasts';
 import { useOnline } from './hooks/useOnline';
 
@@ -141,6 +142,9 @@ function Shell() {
               </NavLink>
             ))}
           </nav>
+          <div className="ml-auto flex shrink-0 items-center">
+            <ThemeToggle />
+          </div>
         </div>
         {pdfActive ? <PdfToolNav /> : null}
       </header>

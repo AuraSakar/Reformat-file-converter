@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/((?!assets/|pdfjs/|favicon\\.svg).*)",
+      "source": "/((?!assets/|pdfjs/|favicon\\.svg|theme-init\\.js).*)",
       "destination": "/index.html"
     }
   ],
