@@ -113,12 +113,17 @@ function Shell() {
 
       <header className="border-b border-line bg-bg">
         <div className="mx-auto flex max-w-[880px] items-center gap-4 px-4 sm:gap-7 sm:px-6">
-          <Link
-            to="/images"
-            className="flex h-12 shrink-0 items-center font-serif text-[26px] leading-none tracking-[-0.01em] text-ink sm:h-14 sm:text-[30px]"
-          >
-            Reformat
-          </Link>
+          <div className="flex shrink-0 items-baseline gap-3">
+            <Link
+              to="/images"
+              className="flex h-12 items-center font-serif text-[26px] font-normal leading-none tracking-[-0.01em] text-ink sm:h-14 sm:text-[30px]"
+            >
+              Reformat
+            </Link>
+            <span className="hidden text-[11px] leading-4 text-ink-2 sm:block">
+              Convert images and PDFs on your device
+            </span>
+          </div>
           <nav aria-label="Sections" className="flex self-stretch gap-4 sm:gap-6">
             {SECTIONS.map((section) => (
               <NavLink
