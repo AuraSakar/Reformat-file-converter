@@ -268,71 +268,24 @@ export default function MergePdf() {
         title="Merge PDF"
         description="Combine PDFs in the order you choose. Page order inside each file is kept."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
-        <div className="min-w-0">
-          <DropZone
-            title="Drop PDFs here"
-            description={`PDF files only. Up to ${LIMITS.maxFiles} files, 40 MB each, 300 MB total. Encrypted PDFs must be unlocked first.`}
-            accept={PDF_ACCEPT}
-            disabled={checking || busy || !workersSupported}
-            onFiles={addFiles}
-            buttonLabel="Choose PDFs"
-          />
+      <DropZone
+        title="Drop PDFs here"
+        description={`PDF files only. Up to ${LIMITS.maxFiles} files, 40 MB each, 300 MB total. Encrypted PDFs must be unlocked first.`}
+        accept={PDF_ACCEPT}
+        disabled={checking || busy || !workersSupported}
+        onFiles={addFiles}
+        buttonLabel="Choose PDFs"
+      />
 
-          {!workersSupported ? (
-            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
-              This browser does not support background PDF processing. Use a current version of
-              Chrome, Edge, Firefox or Safari to merge PDFs.
-            </p>
-          ) : null}
+      {!workersSupported ? (
+        <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+          This browser does not support background PDF processing. Use a current version of
+          Chrome, Edge, Firefox or Safari to merge PDFs.
+        </p>
+      ) : null}
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
-              {liveMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {output ? (
-                <>
-                  <Button
-                    variant={dirty ? 'primary' : 'secondary'}
-                    onClick={buildPdf}
-                    disabled={busy || checking || !workersSupported || validItems.length < 2}
-                  >
-                    {busy ? 'Merging…' : 'Merge again'}
-                  </Button>
-                  <Button
-                    variant={dirty ? 'secondary' : 'primary'}
-                    onClick={() => downloadBlob(output.blob, output.name)}
-                    disabled={busy}
-                  >
-                    Download PDF
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={buildPdf}
-                  disabled={busy || checking || !workersSupported || validItems.length < 2}
-                >
-                  {busy ? 'Merging…' : 'Merge PDFs'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {output && !busy ? (
-            <p className="mt-1 text-[12px] text-ink-2">
-              <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
-              {formatCount(output.pages, 'page')} · {output.name}
-              {savings ? ` · ${savings.percent}% smaller than the inputs` : ''}
-            </p>
-          ) : null}
-
-          {dirty && output && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              The file list changed. Merge again to update the PDF.
-            </p>
-          ) : null}
-
+      {items.length > 0 ? (
+        <>
           <FileQueue
             items={items}
             onRemove={removeItem}
@@ -343,23 +296,69 @@ export default function MergePdf() {
             showOutput={false}
           />
 
-          {items.length > 0 ? (
-            <p className="mt-2 text-[12px] leading-5 text-ink-2">
-              Drag rows or use the reorder handle to set the merge order. PDFs that failed to
-              load stay in the list so you can remove them.
-            </p>
-          ) : null}
-        </div>
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
+                {liveMessage}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {output ? (
+                  <>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'primary' : 'secondary'}
+                      onClick={buildPdf}
+                      disabled={busy || checking || !workersSupported || validItems.length < 2}
+                    >
+                      {busy ? 'Merging…' : 'Merge again'}
+                    </Button>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'secondary' : 'primary'}
+                      onClick={() => downloadBlob(output.blob, output.name)}
+                      disabled={busy}
+                    >
+                      Download PDF
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="md"
+                    onClick={buildPdf}
+                    disabled={busy || checking || !workersSupported || validItems.length < 2}
+                  >
+                    {busy ? 'Merging…' : 'Merge PDFs'}
+                  </Button>
+                )}
+              </div>
+            </div>
 
-        <aside className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-ink">How merge works</h2>
-          <div className="mt-2 space-y-3 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
+            {output && !busy ? (
+              <p className="mt-2 text-[12px] text-ink-2">
+                <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
+                {formatCount(output.pages, 'page')} · {output.name}
+                {savings ? ` · ${savings.percent}% smaller than the inputs` : ''}
+              </p>
+            ) : null}
+
+            {dirty && output && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                The file list changed. Merge again to update the PDF.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-5 space-y-2 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
+            <p>
+              Drag rows or use the reorder handle to set the merge order. PDFs that failed to load
+              stay in the list so you can remove them.
+            </p>
             <p>All pages from each PDF are kept. Bookmarks, links and form fields may not survive.</p>
             <p>Encrypted PDFs need to be unlocked first. Renaming a file to .pdf does not make it readable.</p>
             <p>Everything happens on this device. Nothing is uploaded.</p>
           </div>
-        </aside>
-      </div>
+        </>
+      ) : null}
     </>
   );
 }

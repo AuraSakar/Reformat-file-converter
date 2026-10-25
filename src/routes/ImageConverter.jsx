@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
+import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
 import { ImageSettings } from '../components/ImageSettings';
@@ -424,58 +424,23 @@ export default function ImageConverter() {
         title="Images"
         description="Convert phone photos and scans to JPG, PNG or WebP. Set a target file size for upload limits."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
-        <div className="min-w-0">
-          <DropZone
-            title="Drop images here"
-            description={`${INPUT_FORMATS}. Up to 50 files, 40 MB each, 300 MB total. First frame is used for GIF.`}
-            accept={IMAGE_ACCEPT}
-            disabled={checking || busy}
-            onFiles={addFiles}
-          />
+      <DropZone
+        title="Drop images here"
+        description={`${INPUT_FORMATS}. Up to 50 files, 40 MB each, 300 MB total. First frame is used for GIF.`}
+        accept={IMAGE_ACCEPT}
+        disabled={checking || busy}
+        onFiles={addFiles}
+      />
 
-          {!workersSupported ? (
-            <p className="mt-3 text-[12px] leading-5 text-err">
-              This browser does not support background image processing. Use a current version of
-              Chrome, Edge, Firefox or Safari to convert files.
-            </p>
-          ) : null}
+      {!workersSupported ? (
+        <p className="mt-3 text-[12px] leading-5 text-err">
+          This browser does not support background image processing. Use a current version of
+          Chrome, Edge, Firefox or Safari to convert files.
+        </p>
+      ) : null}
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
-              {liveMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {outputs.length > 0 ? (
-                <Button
-                  variant="secondary"
-                  onClick={downloadAll}
-                  disabled={busy || zipping}
-                >
-                  {zipping ? 'Preparing ZIP…' : `Download ${outputs.length} as ZIP`}
-                </Button>
-              ) : null}
-              <Button
-                variant="primary"
-                onClick={convertAll}
-                disabled={busy || checking || !workersSupported || Boolean(settingsError) || readyCount === 0}
-                title={settingsError || undefined}
-              >
-                {busy
-                  ? 'Converting…'
-                  : readyCount === 0
-                    ? 'Convert all'
-                    : `Convert ${readyCount} ${readyCount === 1 ? 'file' : 'files'}`}
-              </Button>
-            </div>
-          </div>
-
-          {dirty && outputs.length > 0 && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              Settings changed. Convert again to replace the current results.
-            </p>
-          ) : null}
-
+      {items.length > 0 ? (
+        <>
           <FileQueue
             items={items}
             onRemove={removeItem}
@@ -483,22 +448,61 @@ export default function ImageConverter() {
             removeDisabled={busy}
           />
 
-          {items.length > 0 ? (
-            <p className="mt-2 text-[12px] leading-5 text-ink-2">
-              JPG has no transparency, so transparent areas are filled with the chosen background.
-              Converted images are re-encoded and have their metadata removed.
-            </p>
-          ) : null}
-        </div>
+          <SettingsReveal show>
+            <ImageSettings
+              settings={settings}
+              onChange={changeSettings}
+              disabled={busy}
+              supportsWebp={webpSupported !== false}
+              settingsError={settingsError}
+            />
+          </SettingsReveal>
 
-        <ImageSettings
-          settings={settings}
-          onChange={changeSettings}
-          disabled={busy}
-          supportsWebp={webpSupported !== false}
-          settingsError={settingsError}
-        />
-      </div>
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
+                {liveMessage}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {outputs.length > 0 ? (
+                  <Button
+                    size="md"
+                    variant="secondary"
+                    onClick={downloadAll}
+                    disabled={busy || zipping}
+                  >
+                    {zipping ? 'Preparing ZIP…' : `Download ${outputs.length} as ZIP`}
+                  </Button>
+                ) : null}
+                <Button
+                  size="md"
+                  variant="primary"
+                  onClick={convertAll}
+                  disabled={busy || checking || !workersSupported || Boolean(settingsError) || readyCount === 0}
+                  title={settingsError || undefined}
+                >
+                  {busy
+                    ? 'Converting…'
+                    : readyCount === 0
+                      ? 'Convert all'
+                      : `Convert ${readyCount} ${readyCount === 1 ? 'file' : 'files'}`}
+                </Button>
+              </div>
+            </div>
+
+            {dirty && outputs.length > 0 && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                Settings changed. Convert again to replace the current results.
+              </p>
+            ) : null}
+          </div>
+
+          <p className="mt-3 text-[12px] leading-5 text-ink-2">
+            JPG has no transparency, so transparent areas are filled with the chosen background.
+            Converted images are re-encoded and have their metadata removed.
+          </p>
+        </>
+      ) : null}
     </>
   );
 }

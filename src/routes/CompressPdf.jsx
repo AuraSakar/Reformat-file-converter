@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
+import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
 import { Button } from '../components/Button';
@@ -301,121 +301,124 @@ export default function CompressPdf() {
         title="Compress PDF"
         description="Rebuild a PDF with compressed page images. Smaller files, but text becomes part of a picture."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
-        <div className="min-w-0">
-          <DropZone
-            title="Drop a PDF here"
-            description={`PDF files only. One file at a time, up to 40 MB. Pages are rebuilt as JPG images.`}
-            accept={PDF_ACCEPT}
-            multiple={false}
-            disabled={busy || preparing || !workersSupported}
-            onFiles={addFile}
-            buttonLabel="Choose PDF"
-          />
+      <DropZone
+        title="Drop a PDF here"
+        description="PDF files only. One file at a time, up to 40 MB. Pages are rebuilt as JPG images."
+        accept={PDF_ACCEPT}
+        multiple={false}
+        disabled={busy || preparing || !workersSupported}
+        onFiles={addFile}
+        buttonLabel="Choose PDF"
+      />
 
-          {!workersSupported ? (
-            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
-              This browser does not support background PDF rendering. Use a current version of
-              Chrome, Edge, Firefox or Safari to compress PDFs.
-            </p>
-          ) : null}
+      {!workersSupported ? (
+        <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+          This browser does not support background PDF rendering. Use a current version of
+          Chrome, Edge, Firefox or Safari to compress PDFs.
+        </p>
+      ) : null}
+
+      {item ? (
+        <>
+          <FileQueue
+            items={[item]}
+            onRemove={removeItem}
+            removeDisabled={busy || preparing}
+            showOutput={false}
+          />
 
           <p className="mt-3 border-l-2 border-warn pl-2.5 text-[12px] leading-5 text-ink-2">
             <span className="font-medium text-ink">This flattens text into images.</span> Text
             will not be selectable or searchable after compression.
           </p>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
-              {liveMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {output ? (
-                <>
+          <SettingsReveal show>
+            <CompressSettings
+              settings={settings}
+              onChange={changeSettings}
+              disabled={busy || preparing || !workersSupported}
+            />
+          </SettingsReveal>
+
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
+                {liveMessage}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {output ? (
+                  <>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'primary' : 'secondary'}
+                      onClick={compress}
+                      disabled={busy || preparing || !workersSupported || !readied}
+                    >
+                      {busy ? 'Compressing…' : 'Compress again'}
+                    </Button>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'secondary' : 'primary'}
+                      onClick={() => downloadBlob(output.blob, output.name)}
+                      disabled={busy}
+                    >
+                      Download PDF
+                    </Button>
+                  </>
+                ) : (
                   <Button
-                    variant={dirty ? 'primary' : 'secondary'}
+                    size="md"
                     onClick={compress}
                     disabled={busy || preparing || !workersSupported || !readied}
                   >
-                    {busy ? 'Compressing…' : 'Compress again'}
+                    {busy ? 'Compressing…' : 'Compress PDF'}
                   </Button>
-                  <Button
-                    variant={dirty ? 'secondary' : 'primary'}
-                    onClick={() => downloadBlob(output.blob, output.name)}
-                    disabled={busy}
-                  >
-                    Download PDF
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={compress} disabled={busy || preparing || !workersSupported || !readied}>
-                  {busy ? 'Compressing…' : 'Compress PDF'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {busy && progress?.total ? (
-            <div className="mt-2" aria-hidden="true">
-              <div className="h-1 overflow-hidden rounded-full bg-line">
-                <div
-                  className="h-full bg-ink transition-[width] duration-150"
-                  style={{
-                    width: `${Math.max(4, ((progress.done || 0) / progress.total) * 100)}%`,
-                  }}
-                />
+                )}
               </div>
             </div>
-          ) : null}
 
-          {output && !busy ? (
-            <p className="mt-1 text-[12px] text-ink-2">
-              <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
-              {formatCount(output.pages, 'page')} · {output.name}
-              {savings ? ` · ${savings.percent}% smaller` : ' · larger than original'}
-            </p>
-          ) : null}
+            {busy && progress?.total ? (
+              <div className="mt-2" aria-hidden="true">
+                <div className="h-1 overflow-hidden rounded-full bg-line">
+                  <div
+                    className="h-full bg-ink transition-[width] duration-150"
+                    style={{
+                      width: `${Math.max(4, ((progress.done || 0) / progress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
 
-          {dirty && output && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              The compression level changed. Compress again to update the PDF.
-            </p>
-          ) : null}
+            {output && !busy ? (
+              <p className="mt-2 text-[12px] text-ink-2">
+                <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
+                {formatCount(output.pages, 'page')} · {output.name}
+                {savings ? ` · ${savings.percent}% smaller` : ' · larger than original'}
+              </p>
+            ) : null}
 
-          {output?.clamped && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              Some very large pages were capped by the browser canvas limit.
-            </p>
-          ) : null}
+            {dirty && output && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                The compression level changed. Compress again to update the PDF.
+              </p>
+            ) : null}
 
-          {item ? (
-            <FileQueue
-              items={[item]}
-              onRemove={removeItem}
-              removeDisabled={busy || preparing}
-              showOutput={false}
-            />
-          ) : null}
-
-          {item ? (
-            <p className="mt-2 text-[12px] leading-5 text-ink-2">
-              The original file is unchanged. Compare the download with your original before
-              replacing it.
-            </p>
-          ) : null}
-        </div>
-
-        <div className="min-w-0">
-          <CompressSettings
-            settings={settings}
-            onChange={changeSettings}
-            disabled={busy || preparing || !workersSupported}
-          />
-          <div className="mt-4 space-y-3 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
-            <p>Everything is rendered and rebuilt on this device. Nothing is uploaded.</p>
+            {output?.clamped && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                Some very large pages were capped by the browser canvas limit.
+              </p>
+            ) : null}
           </div>
-        </div>
-      </div>
+
+          <div className="mt-5 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
+            <p>
+              The original file is unchanged. Compare the download with your original before
+              replacing it. Everything is rebuilt on this device.
+            </p>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

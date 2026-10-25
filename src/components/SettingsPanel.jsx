@@ -1,10 +1,10 @@
 export function SettingsPanel({ title = 'Settings', children, footer, className = '' }) {
   return (
-    <aside className={`min-w-0 ${className}`} aria-label={title}>
+    <section className={`min-w-0 ${className}`} aria-label={title}>
       <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
-      <div className="mt-2 border-t border-line">{children}</div>
+      <div className="settings-form mt-2 border-t border-line pt-1">{children}</div>
       {footer ? <div className="border-t border-line pt-4">{footer}</div> : null}
-    </aside>
+    </section>
   );
 }
 

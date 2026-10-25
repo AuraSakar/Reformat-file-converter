@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
-import { PageHeader } from '../components/PageHeader';
+import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
+import { SettingsPanel } from '../components/SettingsPanel';
 import { Button } from '../components/Button';
 import { useToast } from '../components/Toasts';
 import { LIMITS, PDF_ACCEPT } from '../lib/config';
@@ -344,104 +345,31 @@ export default function SplitPdf() {
         title="Split PDF"
         description="Pick pages visually or type a range. The selected pages become a new PDF."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
-        <div className="min-w-0">
-          <DropZone
-            title="Drop a PDF here"
-            description={`PDF files only. One file at a time, up to 40 MB. Page previews load on this device.`}
-            accept={PDF_ACCEPT}
-            multiple={false}
-            disabled={preparing || busy || !workersSupported}
-            onFiles={addFile}
-            buttonLabel="Choose PDF"
+      <DropZone
+        title="Drop a PDF here"
+        description="PDF files only. One file at a time, up to 40 MB. Page previews load on this device."
+        accept={PDF_ACCEPT}
+        multiple={false}
+        disabled={preparing || busy || !workersSupported}
+        onFiles={addFile}
+        buttonLabel="Choose PDF"
+      />
+
+      {!workersSupported ? (
+        <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+          This browser does not support background PDF processing. Use a current version of
+          Chrome, Edge, Firefox or Safari to split PDFs.
+        </p>
+      ) : null}
+
+      {item ? (
+        <>
+          <FileQueue
+            items={[item]}
+            onRemove={removeItem}
+            removeDisabled={busy || preparing}
+            showOutput={false}
           />
-
-          {!workersSupported ? (
-            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
-              This browser does not support background PDF processing. Use a current version of
-              Chrome, Edge, Firefox or Safari.
-            </p>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
-              {liveMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {output ? (
-                <>
-                  <Button
-                    variant={dirty ? 'primary' : 'secondary'}
-                    onClick={extract}
-                    disabled={
-                      busy ||
-                      preparing ||
-                      !workersSupported ||
-                      Boolean(rangeError) ||
-                      selectedPages.length === 0
-                    }
-                  >
-                    {busy ? 'Extracting…' : 'Extract again'}
-                  </Button>
-                  <Button
-                    variant={dirty ? 'secondary' : 'primary'}
-                    onClick={() => downloadBlob(output.blob, output.name)}
-                    disabled={busy}
-                  >
-                    Download PDF
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={extract}
-                  disabled={
-                    busy ||
-                    preparing ||
-                    !workersSupported ||
-                    !item ||
-                    item.status === 'error' ||
-                    Boolean(rangeError) ||
-                    selectedPages.length === 0
-                  }
-                >
-                  {busy ? 'Extracting…' : 'Extract pages'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {preparing && progress?.total ? (
-            <div className="mt-2" aria-hidden="true">
-              <div className="h-1 overflow-hidden rounded-full bg-line">
-                <div
-                  className="h-full bg-ink transition-[width] duration-150"
-                  style={{ width: `${Math.max(4, (progress.done / progress.total) * 100)}%` }}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {output && !busy ? (
-            <p className="mt-1 text-[12px] text-ink-2">
-              <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
-              {formatCount(output.pages, 'page')} · {output.name}
-            </p>
-          ) : null}
-
-          {dirty && output && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              The selected pages changed. Extract again to update the PDF.
-            </p>
-          ) : null}
-
-          {item ? (
-            <FileQueue
-              items={[item]}
-              onRemove={removeItem}
-              removeDisabled={busy || preparing}
-              showOutput={false}
-            />
-          ) : null}
 
           {thumbs.length > 0 ? (
             <section className="mt-5" aria-labelledby="pages-heading">
@@ -482,53 +410,137 @@ export default function SplitPdf() {
             </section>
           ) : null}
 
-          {item && item.status === 'error' ? (
-            <p className="mt-2 text-[12px] leading-5 text-ink-2">
-              Remove the file and try another PDF. Password-protected files must be unlocked first.
-            </p>
-          ) : null}
-        </div>
+          <SettingsReveal show>
+            <SettingsPanel title="Page selection">
+              <div className="py-4">
+                <label className="field-label" htmlFor="page-range">
+                  Pages to keep
+                </label>
+                <input
+                  id="page-range"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck="false"
+                  className="control"
+                  placeholder="1-3, 5, 8-10"
+                  value={rangeText}
+                  onChange={(event) => handleRangeChange(event.target.value)}
+                  disabled={!item || item.status === 'error' || preparing || busy}
+                  aria-invalid={Boolean(rangeError)}
+                  aria-describedby="page-range-hint page-range-status"
+                />
+                <p id="page-range-hint" className="field-hint">
+                  Use commas and ranges. For example, 1-3, 5, 8-10.
+                </p>
+                <p
+                  id="page-range-status"
+                  className={`mt-2 text-[12px] leading-4 ${rangeError ? 'text-err' : 'text-ink-2'}`}
+                  role={rangeError ? 'alert' : undefined}
+                >
+                  {rangeError ||
+                    (item?.status === 'ready'
+                      ? `${formatCount(selectedPages.length, 'page')} selected. Click previews to change the range.`
+                      : 'Add a PDF to choose pages.')}
+                </p>
+              </div>
+              <div className="py-4 text-[12px] leading-5 text-ink-2">
+                <p>Pages are kept in document order in the new PDF.</p>
+                <p className="mt-2">
+                  Click a page preview to include or leave it out. The range box follows your
+                  clicks.
+                </p>
+              </div>
+            </SettingsPanel>
+          </SettingsReveal>
 
-        <aside className="min-w-0" aria-label="Page range">
-          <h2 className="text-[15px] font-semibold text-ink">Page range</h2>
-          <div className="mt-2 border-t border-line pt-4">
-            <label className="field-label" htmlFor="page-range">
-              Pages to keep
-            </label>
-            <input
-              id="page-range"
-              type="text"
-              autoComplete="off"
-              spellCheck="false"
-              className="control"
-              placeholder="1-3, 5, 8-10"
-              value={rangeText}
-              onChange={(event) => handleRangeChange(event.target.value)}
-              disabled={!item || item.status === 'error' || preparing || busy}
-              aria-invalid={Boolean(rangeError)}
-              aria-describedby="page-range-hint page-range-status"
-            />
-            <p id="page-range-hint" className="field-hint">
-              Use commas and ranges. For example, 1-3, 5, 8-10.
-            </p>
-            <p
-              id="page-range-status"
-              className={`mt-2 text-[12px] leading-4 ${rangeError ? 'text-err' : 'text-ink-2'}`}
-              role={rangeError ? 'alert' : undefined}
-            >
-              {rangeError ||
-                (item?.status === 'ready'
-                  ? `${formatCount(selectedPages.length, 'page')} selected. Click previews to change the range.`
-                  : 'Add a PDF to choose pages.')}
-            </p>
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
+                {liveMessage}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {output ? (
+                  <>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'primary' : 'secondary'}
+                      onClick={extract}
+                      disabled={
+                        busy ||
+                        preparing ||
+                        !workersSupported ||
+                        Boolean(rangeError) ||
+                        selectedPages.length === 0
+                      }
+                    >
+                      {busy ? 'Extracting…' : 'Extract again'}
+                    </Button>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'secondary' : 'primary'}
+                      onClick={() => downloadBlob(output.blob, output.name)}
+                      disabled={busy}
+                    >
+                      Download PDF
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="md"
+                    onClick={extract}
+                    disabled={
+                      busy ||
+                      preparing ||
+                      !workersSupported ||
+                      !item ||
+                      item.status === 'error' ||
+                      Boolean(rangeError) ||
+                      selectedPages.length === 0
+                    }
+                  >
+                    {busy ? 'Extracting…' : 'Extract pages'}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {preparing && progress?.total ? (
+              <div className="mt-2" aria-hidden="true">
+                <div className="h-1 overflow-hidden rounded-full bg-line">
+                  <div
+                    className="h-full bg-ink transition-[width] duration-150"
+                    style={{ width: `${Math.max(4, (progress.done / progress.total) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {output && !busy ? (
+              <p className="mt-2 text-[12px] text-ink-2">
+                <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
+                {formatCount(output.pages, 'page')} · {output.name}
+              </p>
+            ) : null}
+
+            {dirty && output && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                The selected pages changed. Extract again to update the PDF.
+              </p>
+            ) : null}
           </div>
-          <div className="mt-4 space-y-3 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
-            <p>Pages are kept in document order in the new PDF.</p>
-            <p>Click a page preview to include or leave it out. The range box follows your clicks.</p>
-            <p>Everything happens on this device. Nothing is uploaded.</p>
+
+          <div className="mt-5 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
+            {item.status === 'error' ? (
+              <p>
+                Remove the file and try another PDF. Password-protected files must be unlocked
+                first.
+              </p>
+            ) : (
+              <p>Everything happens on this device. Nothing is uploaded.</p>
+            )}
           </div>
-        </aside>
-      </div>
+        </>
+      ) : null}
     </>
   );
 }

@@ -11,3 +11,8 @@ export function PageHeader({ title, description, children }) {
     </header>
   );
 }
+
+export function SettingsReveal({ show, children }) {
+  if (!show) return null;
+  return <div className="settings-reveal mt-6">{children}</div>;
+}

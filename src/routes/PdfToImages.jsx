@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
+import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
 import { Button } from '../components/Button';
@@ -314,110 +314,116 @@ export default function PdfToImages() {
         title="PDF to images"
         description="Turn every PDF page into a PNG or JPG. Pages are numbered and packed into one ZIP."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
-        <div className="min-w-0">
-          <DropZone
-            title="Drop a PDF here"
-            description={`PDF files only. One file at a time, up to 40 MB. Every page becomes an image.`}
-            accept={PDF_ACCEPT}
-            multiple={false}
-            disabled={busy || preparing || !workersSupported}
-            onFiles={addFile}
-            buttonLabel="Choose PDF"
+      <DropZone
+        title="Drop a PDF here"
+        description="PDF files only. One file at a time, up to 40 MB. Every page becomes an image."
+        accept={PDF_ACCEPT}
+        multiple={false}
+        disabled={busy || preparing || !workersSupported}
+        onFiles={addFile}
+        buttonLabel="Choose PDF"
+      />
+
+      {!workersSupported ? (
+        <p className="mt-3 text-[12px] leading-5 text-err" role="status">
+          This browser does not support background PDF rendering. Use a current version of
+          Chrome, Edge, Firefox or Safari.
+        </p>
+      ) : null}
+
+      {item ? (
+        <>
+          <FileQueue
+            items={[item]}
+            onRemove={removeItem}
+            removeDisabled={busy || preparing}
+            showOutput={false}
           />
 
-          {!workersSupported ? (
-            <p className="mt-3 text-[12px] leading-5 text-err" role="status">
-              This browser does not support background PDF rendering. Use a current version of
-              Chrome, Edge, Firefox or Safari.
-            </p>
-          ) : null}
+          <SettingsReveal show>
+            <PdfPageSettings
+              settings={settings}
+              onChange={changeSettings}
+              disabled={busy || preparing || !workersSupported}
+            />
+          </SettingsReveal>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
-              {liveMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {output ? (
-                <>
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
+                {liveMessage}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {output ? (
+                  <>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'primary' : 'secondary'}
+                      onClick={convert}
+                      disabled={busy || preparing || !workersSupported || !readied}
+                    >
+                      {busy ? 'Converting…' : 'Convert again'}
+                    </Button>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'secondary' : 'primary'}
+                      onClick={() => downloadBlob(output.blob, output.name)}
+                      disabled={busy}
+                    >
+                      Download ZIP
+                    </Button>
+                  </>
+                ) : (
                   <Button
-                    variant={dirty ? 'primary' : 'secondary'}
+                    size="md"
                     onClick={convert}
                     disabled={busy || preparing || !workersSupported || !readied}
                   >
-                    {busy ? 'Converting…' : 'Convert again'}
+                    {busy ? 'Converting…' : 'Convert to images'}
                   </Button>
-                  <Button
-                    variant={dirty ? 'secondary' : 'primary'}
-                    onClick={() => downloadBlob(output.blob, output.name)}
-                    disabled={busy}
-                  >
-                    Download ZIP
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={convert} disabled={busy || preparing || !workersSupported || !readied}>
-                  {busy ? 'Converting…' : 'Convert to images'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {busy && progress?.total ? (
-            <div className="mt-2" aria-hidden="true">
-              <div className="h-1 overflow-hidden rounded-full bg-line">
-                <div
-                  className="h-full bg-ink transition-[width] duration-150"
-                  style={{
-                    width: `${Math.max(4, ((progress.done || 0) / progress.total) * 100)}%`,
-                  }}
-                />
+                )}
               </div>
             </div>
-          ) : null}
 
-          {output && !busy ? (
-            <p className="mt-1 text-[12px] text-ink-2">
-              <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
-              {formatCount(output.pages, 'image')} · {output.name}
-            </p>
-          ) : null}
+            {busy && progress?.total ? (
+              <div className="mt-2" aria-hidden="true">
+                <div className="h-1 overflow-hidden rounded-full bg-line">
+                  <div
+                    className="h-full bg-ink transition-[width] duration-150"
+                    style={{
+                      width: `${Math.max(4, ((progress.done || 0) / progress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
 
-          {dirty && output && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              Settings changed. Convert again to update the ZIP.
-            </p>
-          ) : null}
+            {output && !busy ? (
+              <p className="mt-2 text-[12px] text-ink-2">
+                <span className="font-mono tabular-nums">{formatBytes(output.size)}</span> ·{' '}
+                {formatCount(output.pages, 'image')} · {output.name}
+              </p>
+            ) : null}
 
-          {item ? (
-            <FileQueue
-              items={[item]}
-              onRemove={removeItem}
-              removeDisabled={busy || preparing}
-              showOutput={false}
-            />
-          ) : null}
+            {dirty && output && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                Settings changed. Convert again to update the ZIP.
+              </p>
+            ) : null}
+          </div>
 
-          {item ? (
-            <p className="mt-2 text-[12px] leading-5 text-ink-2">
+          <div className="mt-5 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
+            <p>
               Each page is rendered at the selected resolution. JPG pages use quality 90. The ZIP
               keeps pages in order.
             </p>
-          ) : null}
-        </div>
-
-        <div className="min-w-0">
-          <PdfPageSettings
-            settings={settings}
-            onChange={changeSettings}
-            disabled={busy || preparing || !workersSupported}
-          />
-          <div className="mt-4 space-y-3 border-t border-line pt-4 text-[12px] leading-5 text-ink-2">
-            <p>Text in the PDF becomes part of the image and is no longer selectable.</p>
-            <p>Everything happens on this device. Nothing is uploaded.</p>
+            <p className="mt-2">
+              Text in the PDF becomes part of the image and is no longer selectable. Everything
+              happens on this device.
+            </p>
           </div>
-        </div>
-      </div>
+        </>
+      ) : null}
     </>
   );
 }

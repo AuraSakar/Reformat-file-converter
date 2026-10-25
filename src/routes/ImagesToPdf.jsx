@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCw } from 'lucide-react';
-import { PageHeader } from '../components/PageHeader';
+import { PageHeader, SettingsReveal } from '../components/PageHeader';
 import { DropZone } from '../components/DropZone';
 import { FileQueue } from '../components/FileQueue';
 import { PdfSettings } from '../components/PdfSettings';
@@ -628,72 +628,23 @@ export default function ImagesToPdf() {
         title="Images to PDF"
         description="Put photos and scans in order, then build one PDF. Choose page size, margins, fit and quality."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
-        <div className="min-w-0">
-          <DropZone
-            title="Drop images here"
-            description={`${INPUT_FORMATS}. One page per image; GIF uses its first frame. Up to 50 files, 40 MB each, 300 MB total.`}
-            accept={IMAGE_ACCEPT}
-            disabled={checking || busy}
-            onFiles={addFiles}
-          />
+      <DropZone
+        title="Drop images here"
+        description={`${INPUT_FORMATS}. One page per image; GIF uses its first frame. Up to 50 files, 40 MB each, 300 MB total.`}
+        accept={IMAGE_ACCEPT}
+        disabled={checking || busy}
+        onFiles={addFiles}
+      />
 
-          {!workersSupported ? (
-            <p className="mt-3 text-[12px] leading-5 text-err">
-              This browser does not support background image processing. Use a current version of
-              Chrome, Edge, Firefox or Safari to build PDFs.
-            </p>
-          ) : null}
+      {!workersSupported ? (
+        <p className="mt-3 text-[12px] leading-5 text-err">
+          This browser does not support background image processing. Use a current version of
+          Chrome, Edge, Firefox or Safari to build PDFs.
+        </p>
+      ) : null}
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
-              {liveMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {pdfOutput ? (
-                <>
-                  <Button
-                    variant={dirty ? 'primary' : 'secondary'}
-                    onClick={buildPdf}
-                    disabled={busy || checking || !workersSupported || Boolean(settingsError) || readyCount === 0}
-                    title={settingsError || undefined}
-                  >
-                    {busy ? 'Building…' : 'Build again'}
-                  </Button>
-                  <Button
-                    variant={dirty ? 'secondary' : 'primary'}
-                    onClick={downloadPdf}
-                    disabled={busy}
-                  >
-                    Download PDF
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="primary"
-                  onClick={buildPdf}
-                  disabled={busy || checking || !workersSupported || Boolean(settingsError) || readyCount === 0}
-                  title={settingsError || undefined}
-                >
-                  {busy ? 'Building…' : 'Build PDF'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {pdfOutput && !busy ? (
-            <p className="mt-1 text-[12px] text-ink-2">
-              <span className="font-mono tabular-nums">{formatBytes(pdfOutput.size)}</span> ·{' '}
-              {formatCount(pdfOutput.pages, 'page')} · {pdfOutput.name}
-            </p>
-          ) : null}
-
-          {dirty && pdfOutput && !busy ? (
-            <p className="mt-1 text-[12px] text-warn">
-              Settings or page order changed. Build again to update the PDF.
-            </p>
-          ) : null}
-
+      {items.length > 0 ? (
+        <>
           <FileQueue
             items={items}
             onRemove={removeItem}
@@ -704,28 +655,76 @@ export default function ImagesToPdf() {
             removeDisabled={busy}
           />
 
-          {items.length > 0 ? (
-            <p className="mt-2 text-[12px] leading-5 text-ink-2">
-              Drag rows or use the reorder handle to set page order. Rotate turns the whole image
-              clockwise. Transparent areas become white on the PDF page.
-            </p>
-          ) : null}
-        </div>
+          <SettingsReveal show>
+            <PdfSettings
+              settings={settings}
+              onChange={changeSettings}
+              disabled={busy}
+              settingsError={settingsError}
+            />
+            <PdfPagePreview settings={settings} item={previewItem} pageCount={readyCount} />
+          </SettingsReveal>
 
-        <div className="min-w-0">
-          <PdfSettings
-            settings={settings}
-            onChange={changeSettings}
-            disabled={busy}
-            settingsError={settingsError}
-          />
-          <PdfPagePreview
-            settings={settings}
-            item={previewItem}
-            pageCount={readyCount}
-          />
-        </div>
-      </div>
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-[12px] text-ink-2" aria-live="polite">
+                {liveMessage}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {pdfOutput ? (
+                  <>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'primary' : 'secondary'}
+                      onClick={buildPdf}
+                      disabled={busy || checking || !workersSupported || Boolean(settingsError) || readyCount === 0}
+                      title={settingsError || undefined}
+                    >
+                      {busy ? 'Building…' : 'Build again'}
+                    </Button>
+                    <Button
+                      size="md"
+                      variant={dirty ? 'secondary' : 'primary'}
+                      onClick={downloadPdf}
+                      disabled={busy}
+                    >
+                      Download PDF
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="md"
+                    variant="primary"
+                    onClick={buildPdf}
+                    disabled={busy || checking || !workersSupported || Boolean(settingsError) || readyCount === 0}
+                    title={settingsError || undefined}
+                  >
+                    {busy ? 'Building…' : 'Build PDF'}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {pdfOutput && !busy ? (
+              <p className="mt-2 text-[12px] text-ink-2">
+                <span className="font-mono tabular-nums">{formatBytes(pdfOutput.size)}</span> ·{' '}
+                {formatCount(pdfOutput.pages, 'page')} · {pdfOutput.name}
+              </p>
+            ) : null}
+
+            {dirty && pdfOutput && !busy ? (
+              <p className="mt-2 text-[12px] text-warn">
+                Settings or page order changed. Build again to update the PDF.
+              </p>
+            ) : null}
+          </div>
+
+          <p className="mt-3 text-[12px] leading-5 text-ink-2">
+            Drag rows or use the reorder handle to set page order. Rotate turns the whole image
+            clockwise. Transparent areas become white on the PDF page.
+          </p>
+        </>
+      ) : null}
     </>
   );
 }
