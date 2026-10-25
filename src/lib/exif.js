@@ -13,8 +13,26 @@ export async function getJpegOrientation(file) {
 }
 
 export function parseExifOrientation(bytes) {
-  if (!bytes || bytes.length < 4) return 1;
-  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return 1;
+  return findJpegExifOrientation(bytes)?.orientation ?? 1;
+}
+
+/**
+ * Some browsers apply JPEG EXIF orientation even when createImageBitmap is
+ * asked not to. The orientation tag is reset to 1 in a temporary copy so the
+ * worker can apply the rotation itself exactly once.
+ */
+export function normalizeJpegOrientation(bytes) {
+  const found = findJpegExifOrientation(bytes);
+  if (!found) return 1;
+  if (found.orientation > 1) {
+    found.view.setUint16(found.entryOffset + 8, 1, found.littleEndian);
+  }
+  return found.orientation;
+}
+
+function findJpegExifOrientation(bytes) {
+  if (!bytes || bytes.length < 4) return null;
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
 
   let offset = 2;
   while (offset + 4 <= bytes.length) {
@@ -39,38 +57,39 @@ export function parseExifOrientation(bytes) {
         bytes[offset + 8] === 0x00 &&
         bytes[offset + 9] === 0x00;
       if (isExif) {
-        const orientation = readTiffOrientation(bytes, offset + 10);
-        if (orientation >= 1 && orientation <= 8) return orientation;
+        const found = readTiffOrientation(bytes, offset + 10);
+        if (found && found.orientation >= 1 && found.orientation <= 8) return found;
       }
     }
     offset += 2 + length;
   }
-  return 1;
+  return null;
 }
 
 function readTiffOrientation(bytes, start) {
-  if (start + 8 > bytes.length) return 1;
+  if (start + 8 > bytes.length) return null;
   const view = new DataView(bytes.buffer, bytes.byteOffset + start, bytes.length - start);
   const byteOrder = view.getUint16(0, false);
   let littleEndian;
   if (byteOrder === 0x4949) littleEndian = true;
   else if (byteOrder === 0x4d4d) littleEndian = false;
-  else return 1;
+  else return null;
 
-  if (view.getUint16(2, littleEndian) !== 42) return 1;
+  if (view.getUint16(2, littleEndian) !== 42) return null;
   const ifdOffset = view.getUint32(4, littleEndian);
-  if (ifdOffset + 2 > view.byteLength) return 1;
+  if (ifdOffset + 2 > view.byteLength) return null;
 
   const count = view.getUint16(ifdOffset, littleEndian);
   for (let index = 0; index < count; index += 1) {
-    const entry = ifdOffset + 2 + index * 12;
-    if (entry + 12 > view.byteLength) return 1;
-    const tag = view.getUint16(entry, littleEndian);
+    const entryOffset = ifdOffset + 2 + index * 12;
+    if (entryOffset + 12 > view.byteLength) return null;
+    const tag = view.getUint16(entryOffset, littleEndian);
     if (tag === 0x0112) {
-      const type = view.getUint16(entry + 2, littleEndian);
-      if (type !== 3) return 1;
-      return view.getUint16(entry + 8, littleEndian);
+      const type = view.getUint16(entryOffset + 2, littleEndian);
+      if (type !== 3) return null;
+      const orientation = view.getUint16(entryOffset + 8, littleEndian);
+      return { orientation, littleEndian, view, entryOffset };
     }
   }
-  return 1;
+  return null;
 }

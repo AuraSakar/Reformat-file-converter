@@ -64,7 +64,7 @@ function Thumb({ item }) {
   );
 }
 
-function RowContent({ item, onRemove, onDownload, renderActions }) {
+function RowContent({ item, onRemove, onDownload, renderActions, removeDisabled }) {
   const status = item.status in STATUS_TEXT ? item.status : 'ready';
   const showDownload = Boolean(onDownload) && status === 'done' && item.output?.blob;
   const outputSize = item.output?.size ? formatBytes(item.output.size) : '';
@@ -77,7 +77,7 @@ function RowContent({ item, onRemove, onDownload, renderActions }) {
         <p className="truncate text-[13px] font-medium text-ink" title={item.name}>
           {item.name}
         </p>
-        <p className="mt-0.5 text-[11px] leading-4 text-ink-2 sm:hidden">
+        <p className="mt-0.5 text-[11px] leading-4 text-ink-2 md:hidden">
           <span className={STATUS_COLOR[status]}>{item.statusText || STATUS_TEXT[status]}</span>
           <span aria-hidden="true"> · </span>
           <span className="font-mono tabular-nums">{formatBytes(item.size)}</span>
@@ -93,15 +93,15 @@ function RowContent({ item, onRemove, onDownload, renderActions }) {
         ) : null}
       </div>
 
-      <div className="hidden self-center text-[12px] text-ink-2 sm:block">{item.typeLabel}</div>
-      <div className="mono hidden self-center text-right text-[12px] text-ink-2 sm:block">
+      <div className="hidden self-center text-[12px] text-ink-2 md:block">{item.typeLabel}</div>
+      <div className="mono hidden self-center text-right text-[12px] text-ink-2 md:block">
         {formatBytes(item.size)}
       </div>
-      <div className="hidden min-w-0 self-center sm:flex">
+      <div className="hidden min-w-0 self-center md:flex">
         <Status item={item} />
       </div>
       <div
-        className="mono hidden self-center text-right text-[12px] text-ink-2 sm:block"
+        className="mono hidden self-center text-right text-[12px] text-ink-2 md:block"
         title={item.output?.note || ''}
       >
         {outputSize || ''}
@@ -119,7 +119,7 @@ function RowContent({ item, onRemove, onDownload, renderActions }) {
             label={`Remove ${item.name}`}
             tone="danger"
             onClick={() => onRemove(item)}
-            disabled={item.status === 'working'}
+            disabled={removeDisabled || item.status === 'working'}
           >
             <X size={16} strokeWidth={1.5} aria-hidden="true" />
           </IconButton>
@@ -129,7 +129,7 @@ function RowContent({ item, onRemove, onDownload, renderActions }) {
   );
 }
 
-function SortableFileRow({ item, gridClass, onRemove, onDownload, renderActions }) {
+function SortableFileRow({ item, gridClass, onRemove, onDownload, renderActions, removeDisabled }) {
   const {
     attributes,
     listeners,
@@ -162,17 +162,29 @@ function SortableFileRow({ item, gridClass, onRemove, onDownload, renderActions 
           <GripVertical size={16} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
-      <RowContent item={item} onRemove={onRemove} onDownload={onDownload} renderActions={renderActions} />
+      <RowContent
+        item={item}
+        onRemove={onRemove}
+        onDownload={onDownload}
+        renderActions={renderActions}
+        removeDisabled={removeDisabled}
+      />
     </li>
   );
 }
 
-function PlainFileRow({ item, gridClass, onRemove, onDownload, renderActions }) {
+function PlainFileRow({ item, gridClass, onRemove, onDownload, renderActions, removeDisabled }) {
   return (
     <li
       className={`${gridClass} border-b border-line py-2.5 transition-colors duration-150 hover:bg-black/[0.015]`}
     >
-      <RowContent item={item} onRemove={onRemove} onDownload={onDownload} renderActions={renderActions} />
+      <RowContent
+        item={item}
+        onRemove={onRemove}
+        onDownload={onDownload}
+        renderActions={renderActions}
+        removeDisabled={removeDisabled}
+      />
     </li>
   );
 }
@@ -184,6 +196,7 @@ export function FileQueue({
   onReorder,
   reorderable = false,
   renderActions,
+  removeDisabled = false,
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -193,8 +206,8 @@ export function FileQueue({
   if (items.length === 0) return null;
 
   const gridClass = reorderable
-    ? 'grid grid-cols-[30px_40px_minmax(0,1fr)_auto] items-start gap-x-2 sm:grid-cols-[30px_40px_minmax(0,1fr)_58px_78px_112px_78px_auto] sm:gap-x-3'
-    : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 sm:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_auto] sm:gap-x-3';
+    ? 'grid grid-cols-[30px_40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[30px_40px_minmax(0,1fr)_58px_78px_112px_78px_auto] md:gap-x-3'
+    : 'grid grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-2 md:grid-cols-[40px_minmax(0,1fr)_58px_78px_112px_78px_auto] md:gap-x-3';
 
   const header = (
     <div
@@ -204,10 +217,10 @@ export function FileQueue({
       {reorderable ? <div /> : null}
       <div />
       <div>File</div>
-      <div className="hidden sm:block">Type</div>
-      <div className="hidden text-right sm:block">Size</div>
-      <div className="hidden sm:block">Status</div>
-      <div className="hidden text-right sm:block">Output</div>
+      <div className="hidden md:block">Type</div>
+      <div className="hidden text-right md:block">Size</div>
+      <div className="hidden md:block">Status</div>
+      <div className="hidden text-right md:block">Output</div>
       <div />
     </div>
   );
@@ -215,8 +228,8 @@ export function FileQueue({
   if (!reorderable) {
     return (
       <div>
-        <div className="hidden sm:block">{header}</div>
-        <ul className="border-t border-line sm:border-t-0">
+        <div className="hidden md:block">{header}</div>
+        <ul className="border-t border-line md:border-t-0">
           {items.map((item) => (
             <PlainFileRow
               key={item.id}
@@ -225,6 +238,7 @@ export function FileQueue({
               onRemove={onRemove}
               onDownload={onDownload}
               renderActions={renderActions}
+              removeDisabled={removeDisabled}
             />
           ))}
         </ul>
@@ -246,9 +260,9 @@ export function FileQueue({
       }}
     >
       <div>
-        <div className="hidden sm:block">{header}</div>
+        <div className="hidden md:block">{header}</div>
         <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-          <ul className="border-t border-line sm:border-t-0">
+          <ul className="border-t border-line md:border-t-0">
             {items.map((item) => (
               <SortableFileRow
                 key={item.id}
@@ -257,6 +271,7 @@ export function FileQueue({
                 onRemove={onRemove}
                 onDownload={onDownload}
                 renderActions={renderActions}
+                removeDisabled={removeDisabled}
               />
             ))}
           </ul>

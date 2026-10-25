@@ -59,6 +59,7 @@ export function DropZone({
             accept={accept}
             multiple={multiple}
             disabled={disabled}
+            aria-label={buttonLabel}
             aria-describedby={descriptionId}
             onChange={(event) => {
               handleFiles(event.target.files);
