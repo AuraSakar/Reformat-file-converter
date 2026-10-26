@@ -1035,6 +1035,12 @@ self.onmessage = async (event) => {
           self.postMessage({ id, type: 'progress', progress });
         },
       });
+    } else if (action === 'measure-text-pdf') {
+      const { measureTextPdf } = await import('../lib/textPdf.js');
+      result = await measureTextPdf({
+        text: payload.text,
+        options: payload.options,
+      });
     } else {
       throw new JobError('UNKNOWN_ACTION', 'Unknown PDF action.');
     }
