@@ -12,9 +12,10 @@ export default function Privacy() {
         <section>
           <h2 className="mb-1 text-[15px] font-semibold text-ink">Files stay on your device</h2>
           <p>
-            Files are processed on your device and are not uploaded. Conversion, PDF assembly,
-            page rendering and ZIP creation all run in your browser. No file contents are sent to
-            a server.
+            Files are processed on your device and are not uploaded. Image conversion, audio
+            conversion, PDF assembly, page rendering and ZIP creation all run in your browser. No
+            file contents are sent to a server. Audio conversion uses FFmpeg (LGPL), compiled to
+            WebAssembly. The engine is served from this site and downloaded on first use.
           </p>
         </section>
 
@@ -50,7 +51,9 @@ export default function Privacy() {
             Converted images are re-encoded, which removes EXIF and other metadata. In Images to
             PDF, Original quality embeds JPG and PNG data directly, so metadata already in those
             files can remain; Balanced and Small rebuild each page as a new JPEG, which removes it.
-            Merge PDF and Split PDF copy the selected pages, so data inside those pages is kept.
+            Audio conversion copies tags and cover art when they are kept and the output format
+            supports them; otherwise audio metadata is not copied. Merge PDF and Split PDF copy the
+            selected pages, so data inside those pages is kept.
             Compress PDF keeps selectable text by default, replaces page images only when a smaller
             JPEG can be made, and strips document metadata and unused objects. Maximum compression
             rebuilds every page as a new JPEG, so original text structure and metadata are not

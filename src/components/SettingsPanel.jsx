@@ -8,9 +8,9 @@ export function SettingsPanel({ title = 'Settings', children, footer, className 
   );
 }
 
-export function SettingsGroup({ title, description, children }) {
+export function SettingsGroup({ title, description, children, className = '' }) {
   return (
-    <fieldset className="border-b border-line py-4">
+    <fieldset className={`border-b border-line py-4 ${className}`}>
       <legend className="mb-3 text-[12px] font-medium text-ink-2">{title}</legend>
       {description ? (
         <p className="-mt-1.5 mb-3 text-[12px] leading-4 text-ink-2">{description}</p>

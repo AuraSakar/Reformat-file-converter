@@ -6,6 +6,7 @@ import { ToastProvider } from './components/Toasts';
 import { useOnline } from './hooks/useOnline';
 
 const ImageConverter = lazy(() => import('./routes/ImageConverter'));
+const AudioConverter = lazy(() => import('./routes/AudioConverter'));
 const ImagesToPdf = lazy(() => import('./routes/ImagesToPdf'));
 const TextToPdf = lazy(() => import('./routes/TextToPdf'));
 const MergePdf = lazy(() => import('./routes/MergePdf'));
@@ -17,6 +18,7 @@ const Privacy = lazy(() => import('./routes/Privacy'));
 
 const SECTIONS = [
   { to: '/images', label: 'Images' },
+  { to: '/audio', label: 'Audio' },
   { to: '/pdf', label: 'PDF' },
 ];
 
@@ -123,7 +125,7 @@ function Shell() {
               Reformat
             </Link>
             <span className="hidden text-[11px] leading-4 text-ink-2 sm:block">
-              Convert images and PDFs on your device
+              Convert images, audio and PDFs on your device
             </span>
           </div>
           <nav aria-label="Sections" className="flex self-stretch gap-4 sm:gap-6">
@@ -163,6 +165,7 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Navigate to="/images" replace />} />
             <Route path="/images" element={<ImageConverter />} />
+            <Route path="/audio" element={<AudioConverter />} />
             <Route path="/pdf" element={<Navigate to="/pdf/images-to-pdf" replace />} />
             <Route path="/pdf/images-to-pdf" element={<ImagesToPdf />} />
             <Route path="/pdf/text-to-pdf" element={<TextToPdf />} />

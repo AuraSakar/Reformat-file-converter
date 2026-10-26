@@ -6,13 +6,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/copy-ffmpeg-core.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/copy-ffmpeg-core.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "0.12.15",
+    "@ffmpeg/util": "0.12.2",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
@@ -20,7 +25,7 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "fflate": "^0.8.3",
     "gifenc": "^1.0.3",
-    "heic2any": "^0.0.4",
+    "heic-to": "^1.6.6",
     "lucide-react": "^1.61.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.4.299",
