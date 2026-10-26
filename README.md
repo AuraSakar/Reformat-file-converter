@@ -1,8 +1,8 @@
 # Reformat
 
-A small, browser-based file converter for students. Convert phone photos, build PDFs from
-images, merge and split PDFs, export PDF pages as images, and compress PDFs. Files are processed
-on the device and are never uploaded.
+A small, browser-based file converter for students. Convert phone photos and audio, build PDFs
+from images, merge and split PDFs, export PDF pages as images, and compress PDFs. Files are
+processed on the device and are never uploaded.
 
 **Live:** [reformat-file-converter.vercel.app](https://reformat-file-converter.vercel.app)
 
@@ -11,6 +11,9 @@ on the device and are never uploaded.
 - **Images** - convert JPG, PNG, WebP, AVIF, GIF (first frame), BMP, SVG, ICO, HEIC/HEIF and TIFF
   to JPG, PNG, WebP, AVIF, GIF, BMP or ICO. Quality, resize, rotate, JPG/BMP background colour,
   target file size, batch conversion and ZIP download.
+- **Audio** - convert MP3, WAV, FLAC, AAC, M4A, OGG, Opus, WMA, AIFF, AMR and 3GP files, or
+  extract the audio track from MP4, MKV, WebM and MOV videos. Output as WAV, FLAC, M4A ALAC, MP3,
+  M4A AAC or OGG Vorbis with optional sample rate, channels, bit depth and metadata handling.
 - **Images to PDF** - combine images into one PDF with A4, A3, Letter, Legal or fit-to-image pages,
   orientation, margins, contain/fill, and three quality modes. Original quality embeds JPG and PNG
   bytes directly.
@@ -26,13 +29,14 @@ on the device and are never uploaded.
   maximum compression that rebuilds every page as a JPEG. Light, Balanced and Strong presets,
   optional target size, and a guaranteed no-larger-than-original result.
 
-Images and PDFs are processed entirely on the device, and the original file is never modified.
+Audio, images and PDFs are processed entirely on the device, and the original file is never
+modified.
 
 ## Limits
 
-- 50 files per batch
-- 40 MB per file
-- 300 MB per batch
+- Images and PDFs: 50 files per batch, 40 MB per file, 300 MB per batch
+- Audio: 20 files per batch, 200 MB per file, 600 MB per batch (80 MB per file and 200 MB per
+  batch on small or low-memory devices)
 - PDF tools accept one file, except Merge PDF
 
 Encrypted PDFs must be unlocked before use. File types are checked by their bytes, not just the
@@ -47,7 +51,8 @@ Images to PDF in Original mode embeds JPG/PNG data directly, so metadata already
 files can remain. Compress PDF keeps selectable text by default while replacing large images only
 with smaller versions, and strips document metadata and unused objects. Maximum compression
 rebuilds every page as a new JPEG, so original text structure and metadata are not copied. See the
-in-app Privacy page for the same statement.
+in-app Privacy page for the same statement. Audio conversion uses FFmpeg (LGPL), compiled to
+WebAssembly, and the engine is served from this site on first use.
 
 ## Local development
 
@@ -71,8 +76,8 @@ The live production project is connected to this GitHub repository and deploys `
 automatically at <https://reformat-file-converter.vercel.app>. The repository is ready for
 Vercel's Vite preset. `vercel.json` defines the SPA fallback,
 immutable caching for hashed `/assets/*` files, and security headers including a content security
-policy that allows self-hosted workers, blob workers, blob/data images and WebAssembly. The CSP
-also allows `'unsafe-eval'` because the bundled HEIC decoder needs it; the app loads no third-party
+policy that allows self-hosted workers, blob workers, blob/data images and WebAssembly. The bundled
+HEIC decoder uses its CSP-safe build, so `'unsafe-eval'` is not needed; the app loads no third-party
 or user-provided scripts.
 
 1. Import the GitHub repository into Vercel.
@@ -87,17 +92,22 @@ npx vercel --prod
 ```
 
 The PDF.js standard fonts, character maps and WebAssembly files are checked into `public/pdfjs`
-so rendering does not depend on a CDN.
+so rendering does not depend on a CDN. The FFmpeg core is copied from `node_modules` into
+`public/ffmpeg` by the install and prebuild scripts, so it is not committed twice. HEIC decoding
+uses heic-to (LGPL-3.0), loaded only when a HEIC file is selected.
 
 ## Architecture
 
 - React 19 + Vite 8 + Tailwind CSS v4.
-- Route-level code splitting. PDF.js, pdf-lib, fflate, heic2any, UTIF, gifenc, fontkit and the
+- Route-level code splitting. PDF.js, pdf-lib, fflate, heic-to, UTIF, gifenc, fontkit and the
   AVIF encoder are loaded only by the tools that need them.
 - All image and PDF work runs in Web Workers. The image pool processes files in parallel; the PDF
   pool serializes page rendering to cap memory.
 - PDF.js runs inside a custom worker with `OffscreenCanvas`; PDF.js assets are self-hosted under
   `/pdfjs/`.
+- Audio conversion uses a single-threaded FFmpeg WebAssembly build, loaded only on the Audio route
+  when the first conversion starts. The core is self-hosted under `/ffmpeg/`, one job runs at a
+  time, and each job cleans up its virtual filesystem files.
 - PDF merge, split and organize use pdf-lib. PDF export renders pages with PDF.js and rebuilds the
   output with pdf-lib. Compression keeps text by walking image XObjects and replacing only smaller
   JPEG versions, or optionally rasterizes pages with PDF.js.
@@ -107,7 +117,8 @@ so rendering does not depend on a CDN.
 
 ## Supported browsers
 
-Use a current version of Chrome, Edge, Firefox or Safari. Image conversion needs module workers,
+Use a current version of Chrome, Edge, Firefox or Safari. Audio conversion needs WebAssembly and
+a module worker. Image conversion needs module workers,
 `OffscreenCanvas` and `createImageBitmap`. PDF page rendering and compression also need
 `OffscreenCanvas.convertToBlob`; older browsers show an unsupported-feature message and disable the
 action. AVIF output uses a bundled WebAssembly encoder that is loaded only when selected. HEIC
