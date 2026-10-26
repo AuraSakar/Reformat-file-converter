@@ -9,6 +9,24 @@ export const IMAGE_ACCEPT =
 
 export const PDF_ACCEPT = '.pdf,application/pdf';
 
+export const AUDIO_LIMITS = Object.freeze({
+  maxFiles: 20,
+  maxFileBytes: 200 * 1024 * 1024,
+  maxTotalBytes: 600 * 1024 * 1024,
+});
+
+export const AUDIO_LIMITS_SMALL = Object.freeze({
+  maxFiles: 20,
+  maxFileBytes: 80 * 1024 * 1024,
+  maxTotalBytes: 200 * 1024 * 1024,
+});
+
+export const AUDIO_ACCEPT =
+  '.mp3,.wav,.flac,.aac,.m4a,.ogg,.oga,.opus,.wma,.aiff,.aif,.amr,.3gp,.mp4,.m4v,.mkv,.webm,.mov,audio/*,video/mp4,video/quicktime,video/webm,video/x-matroska';
+
+export const AUDIO_INPUT_FORMATS =
+  'MP3, WAV, FLAC, AAC, M4A, OGG, Opus, WMA, AIFF, AMR, 3GP, or audio from MP4, MKV, WebM and MOV';
+
 export const IMAGE_FORMAT_LABELS = Object.freeze({
   jpeg: 'JPG',
   png: 'PNG',
