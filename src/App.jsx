@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { Footer } from './components/Footer';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ToastProvider } from './components/Toasts';
 import { useOnline } from './hooks/useOnline';
@@ -181,17 +182,7 @@ function Shell() {
         </Suspense>
       </main>
 
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-[880px] flex-col gap-1 px-4 py-4 text-[12px] text-ink-2 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>Files are processed on your device and are not uploaded.</p>
-          <Link
-            to="/privacy"
-            className="inline-flex min-h-10 w-fit items-center underline underline-offset-2 hover:text-ink sm:min-h-0"
-          >
-            Privacy
-          </Link>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
